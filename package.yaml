@@ -1,0 +1,81 @@
+name:                syncbox
+version:             0.1.0.1
+github:              "damianfral/syncbox"
+license:             BSD3
+author:              "damianfral"
+maintainer:          "huevofritopamojarpan@gmail.com"
+copyright:           "2019 damianfral"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README
+
+dependencies:
+
+- aeson
+- base >= 4.7 && < 5
+- base64
+- blaze-html
+- bytestring
+- conduit
+- containers
+- cryptohash-sha256
+- directory
+- dir-traverse
+- exceptions
+- filepath
+- fsnotify
+- generic-lens
+- http-client-tls
+- http-types
+- lens
+- mime-types
+- monad-control
+- neat-interpolation
+- optparse-generic
+- protolude
+- resourcet
+- servant
+- servant-client
+- servant-server
+- sqlite-simple
+- stm
+- streamly
+- streamly-process
+- text
+- time
+- uuid
+- wai
+- wai-conduit
+- wai-cors
+- wai-extra
+- warp
+- wreq
+
+library:
+  source-dirs: ./src/
+
+executables:
+
+  syncbox:
+    main         : Main.hs
+    source-dirs  : ./app/
+    dependencies :
+      - syncbox
+
+ghc-options:
+- -Wall
+- -fwarn-tabs
+- -fwarn-incomplete-uni-patterns
+- -fwarn-incomplete-record-updates
+- -threaded
+- -rtsopts -with-rtsopts=-N
