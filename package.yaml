@@ -50,6 +50,7 @@ dependencies:
 - sqlite-simple
 - stm
 - streamly
+- streamly-core
 - streamly-process
 - text
 - time
