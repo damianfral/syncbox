@@ -69,6 +69,10 @@
 
           dev-shell = pkgs.mkShell {
             buildInputs = with pkgs; [alejandra];
+            shellHook = ''
+              syncthing-proxy(){
+                nixops ssh -d fake.com fake -L 9999:localhost:8384 'echo "proxy to syncthing at http://localhost:9999"; read  -n 1'
+            '';
           };
         };
         defaultPackage = packages.syncbox;
