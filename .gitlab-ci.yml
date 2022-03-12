@@ -1,6 +1,0 @@
-image: nixos/nix:latest
-
-build-server:
-  stage: build
-  script:
-    - nix-build -A packages.x86_64-linux.syncbox
