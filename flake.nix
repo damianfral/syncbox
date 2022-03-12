@@ -76,6 +76,8 @@
         devShell = with packages;
           mne.lib.mergeNixEnvs
           [syncbox-shell dev-shell];
+
+        overlay = final: prev: {inherit packages;};
       }
     )
     // {
