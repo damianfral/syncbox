@@ -81,7 +81,7 @@
           mne.lib.mergeNixEnvs
           [syncbox-shell dev-shell];
 
-        overlay = final: prev: {inherit packages;};
+        overlay = final: prev: { syncbox = packages.syncbox;};
       }
     )
     // {
