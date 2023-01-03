@@ -69,7 +69,7 @@ executables:
 
   syncbox:
     main         : Main.hs
-    source-dirs  : ./app/
+    source-dirs  : ./src
     dependencies :
       - syncbox
 
@@ -79,4 +79,5 @@ ghc-options:
 - -fwarn-incomplete-uni-patterns
 - -fwarn-incomplete-record-updates
 - -threaded
-- -rtsopts -with-rtsopts=-N
+- -rtsopts
+- -with-rtsopts=-N
