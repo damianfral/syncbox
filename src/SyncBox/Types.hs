@@ -9,11 +9,9 @@
 
 module SyncBox.Types where
 
-import Data.Generics.Labels ()
 import Database.SQLite.Simple
 import Database.SQLite.Simple.FromField
 import Database.SQLite.Simple.ToField
-import Options.Generic
 import Protolude hiding (div, hash, head, link)
 
 --------------------------------------------------------------------------------

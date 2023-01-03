@@ -8,9 +8,7 @@
 
 module SyncBox.Render where
 
-import Control.Lens
 import qualified Data.ByteString.Lazy as BS
-import Data.Generics.Labels ()
 import Data.Text (pack)
 import qualified Data.Text as T
 import Network.HTTP.Types.Status

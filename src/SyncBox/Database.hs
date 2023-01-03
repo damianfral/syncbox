@@ -19,7 +19,6 @@ module SyncBox.Database where
 import Crypto.Hash.SHA256 (hash)
 import Data.ByteString.Base64.URL (encodeBase64)
 import qualified Data.ByteString.Lazy as BS
-import Data.Generics.Labels ()
 import Data.UUID (toText)
 import Data.UUID.V4
 import Database.SQLite.Simple
