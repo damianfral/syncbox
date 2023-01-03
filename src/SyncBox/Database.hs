@@ -16,7 +16,6 @@
 
 module SyncBox.Database where
 
-import SyncBox.Types
 import Crypto.Hash.SHA256 (hash)
 import Data.ByteString.Base64.URL (encodeBase64)
 import qualified Data.ByteString.Lazy as BS
@@ -27,6 +26,7 @@ import Database.SQLite.Simple
 import qualified NeatInterpolation
 import Protolude hiding (div, hash, head, link)
 import Protolude.Partial (fromJust)
+import SyncBox.Types
 import System.Directory (makeAbsolute)
 import System.FilePath
 import qualified Prelude

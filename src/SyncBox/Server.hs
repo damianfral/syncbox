@@ -13,9 +13,6 @@
 
 module SyncBox.Server where
 
-import SyncBox.Database
-import SyncBox.Render
-import SyncBox.Types
 import Conduit
 import Control.Lens hiding ((<.>))
 import Control.Monad.Catch
@@ -36,6 +33,9 @@ import Options.Generic
 import Protolude hiding (div, hash, head, link, yield, (<.>))
 import qualified Streamly.Prelude as S
 import qualified Streamly.System.Process as Process
+import SyncBox.Database
+import SyncBox.Render
+import SyncBox.Types
 import System.Directory (makeAbsolute)
 import System.Directory.Recursive (getFilesRecursive)
 import System.FSNotify as FS

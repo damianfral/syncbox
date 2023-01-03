@@ -8,7 +8,6 @@
 
 module SyncBox.Render where
 
-import SyncBox.Types
 import Control.Lens
 import qualified Data.ByteString.Lazy as BS
 import Data.Generics.Labels ()
@@ -17,6 +16,7 @@ import qualified Data.Text as T
 import Network.HTTP.Types.Status
 import Network.Wai
 import Protolude hiding (div, hash, head, link)
+import SyncBox.Types
 import System.FilePath
 import Text.Blaze.Html.Renderer.Pretty
 import Text.Blaze.Html5 hiding (style)
