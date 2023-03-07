@@ -58,9 +58,6 @@
                   in
 
                   {
-                    streamly = self.callCabal2nix "streamly" inputs.streamly { };
-                    streamly-core = self.callCabal2nix "streamly-core" "${inputs.streamly}/core" { };
-                    streamly-process = dontCheck (self.callCabal2nix "streamly-process" inputs.streamly-process { });
                     syncbox = self.generateOptparseApplicativeCompletions
                       [ "syncbox" ]
                       (self.callCabal2nix "syncbox" filteredSrc { });
