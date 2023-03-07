@@ -63,12 +63,13 @@ executables:
     source-dirs  : ./src
     dependencies :
       - syncbox
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
 
 ghc-options:
 - -Wall
 - -fwarn-tabs
 - -fwarn-incomplete-uni-patterns
 - -fwarn-incomplete-record-updates
-- -threaded
-- -rtsopts
-- -with-rtsopts=-N
