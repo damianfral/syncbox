@@ -21,46 +21,37 @@ description:         Please see the README
 
 dependencies:
 
-- aeson
-- base >= 4.7 && < 5
-- base64
-- blaze-html
-- bytestring
-- conduit
-- containers
-- cryptohash-sha256
-- directory
-- dir-traverse
-- exceptions
-- filepath
-- fsnotify
-- generic-lens
-- http-client-tls
-- http-types
-- lens
-- mime-types
-- monad-control
-- neat-interpolation
-- optparse-generic
-- protolude
-- resourcet
-- servant
-- servant-client
-- servant-server
-- sqlite-simple
-- stm
-- streamly
-- streamly-core
-- streamly-process
-- text
-- time
-- uuid
-- wai
-- wai-conduit
-- wai-cors
-- wai-extra
-- warp
-- wreq
+  - base
+  - blaze-html
+  - bytestring
+  - conduit
+  - conduit-extra
+  - directory
+  - dir-traverse
+  - exceptions
+  - filepath
+  - formatting
+  - fsnotify
+  - generic-lens
+  - http-types
+  - lens
+  - mime-types
+  - monad-control
+  - neat-interpolation
+  - optparse-generic
+  - process
+  - protolude
+  - servant
+  - servant-blaze
+  - servant-server
+  - servant-conduit
+  - sqlite-simple
+  - text
+  - uuid
+  - wai
+  - wai-extra
+  - warp
+  - zip-stream
 
 library:
   source-dirs: ./src/
