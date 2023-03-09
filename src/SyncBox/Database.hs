@@ -1,4 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -16,17 +15,13 @@
 
 module SyncBox.Database where
 
-import Crypto.Hash.SHA256 (hash)
-import Data.ByteString.Base64.URL (encodeBase64)
-import qualified Data.ByteString.Lazy as BS
-import Data.UUID (toText)
 import Data.UUID.V4
 import Database.SQLite.Simple
 import qualified NeatInterpolation
-import Protolude hiding (div, hash, head, link)
+import Protolude hiding (div, head, link)
 import Protolude.Partial (fromJust)
 import SyncBox.Types
-import System.Directory (makeAbsolute)
+import System.Directory (getFileSize, makeAbsolute)
 import System.FilePath
 import qualified Prelude
 
@@ -38,31 +33,36 @@ schema =
     <$> [ [NeatInterpolation.text|
       CREATE TABLE directories
         (
-           uuid   TEXT PRIMARY KEY,
-           name   TEXT NOT NULL,
-           path   TEXT NOT NULL,
-           parent TEXT REFERENCES directories(id) ON DELETE CASCADE
+           directory_id TEXT PRIMARY KEY,
+           name         TEXT NOT NULL,
+           path         TEXT NOT NULL,
+           parent       TEXT REFERENCES directories(directory_id) ON DELETE CASCADE
         );
         |],
           [NeatInterpolation.text|
       CREATE TABLE files
         (
-           hash      TEXT NOT NULL,
+           file_id   TEXT NOT NULL,
            name      TEXT NOT NULL,
+           size      INTEGER NOT NULL,
            path      TEXT NOT NULL,
-           directory TEXT NOT NULL REFERENCES directories(id) ON DELETE CASCADE
+           directory TEXT NOT NULL REFERENCES directories(directory_id) ON DELETE CASCADE
         );
         |],
           [NeatInterpolation.text|
-      CREATE UNIQUE INDEX uniquedirectoriespath ON directories (path);
+
+      CREATE UNIQUE INDEX unique_directory_id ON directories (directory_id);
+        |],
+          [NeatInterpolation.text|
+      CREATE UNIQUE INDEX unique_directory_path ON directories (path);
         |],
           [NeatInterpolation.text|
 
-      CREATE UNIQUE INDEX uniquefileshash ON files (hash);
+      CREATE UNIQUE INDEX unique_file_id ON files (file_id);
         |],
           [NeatInterpolation.text|
 
-      CREATE UNIQUE INDEX uniquefilespath ON files (path);
+      CREATE UNIQUE INDEX unique_files_path ON files (path);
         |]
         ]
 
@@ -73,112 +73,125 @@ initDB conn = mapM_ (execute_ conn) schema
 
 --------------------------------------------------------------------------------
 
-nextDirectoryID :: IO DirectoryID
-nextDirectoryID = DirectoryID . toText <$> nextRandom
+nextDirectoryID :: MonadIO m => m DirectoryID
+nextDirectoryID = liftIO $ DirectoryID <$> nextRandom
 
-hashFile :: FilePath -> IO Hash
-hashFile filepath = do
-  fileContent <- BS.toStrict <$> BS.readFile filepath
-  pure $ Hash $ encodeBase64 $ hash fileContent
+nextFileID :: IO FileID
+nextFileID = FileID <$> nextRandom
 
 --------------------------------------------------------------------------------
 
-selectRootDirectory :: Env -> IO Directory
-selectRootDirectory Env {..} = Prelude.head <$> query_ dbConnection q
+selectRootDirectory :: AppM Directory
+selectRootDirectory = do
+  Env {..} <- ask
+  liftIO $ Prelude.head <$> query_ dbConnection q
   where
     q = "select * from directories where parent IS NULL;"
 
-selectDirectory :: Env -> DirectoryID -> IO (Maybe Directory)
-selectDirectory Env {..} uuid = Protolude.headMay <$> query dbConnection q (Only uuid)
+selectDirectory :: DirectoryID -> AppM (Maybe Directory)
+selectDirectory uuid = do
+  Env {..} <- ask
+  liftIO $ Protolude.headMay <$> query dbConnection q (Only uuid)
   where
-    q = "select * from directories where uuid = ?;"
+    q = "select * from directories where directory_id = ? ORDER BY name ASC;"
 
-selectDirectoryByFullPath :: Env -> FilePath -> IO (Maybe Directory)
-selectDirectoryByFullPath Env {..} filePath =
-  Protolude.headMay <$> query dbConnection q (Only filePath)
+selectDirectoryByFullPath :: FilePath -> AppM (Maybe Directory)
+selectDirectoryByFullPath filePath = do
+  Env {..} <- ask
+  liftIO $ Protolude.headMay <$> query dbConnection q (Only filePath)
   where
-    q = "select * from directories where path = ?;"
+    q = "select * from directories where path = ?; ORDER BY name ASC"
 
-selectSubDirectories :: Env -> DirectoryID -> IO [Directory]
-selectSubDirectories Env {..} = query dbConnection q . Only
+selectSubDirectories :: DirectoryID -> AppM [Directory]
+selectSubDirectories dirID = do
+  Env {..} <- ask
+  liftIO $ query dbConnection q $ Only dirID
   where
-    q = "select * from directories where parent = ?;"
+    q = "select * from directories where parent = ? ORDER BY name ASC;"
 
-selectFile :: Env -> Hash -> IO (Maybe File)
-selectFile Env {..} fileHash =
-  Protolude.headMay <$> query dbConnection q (Only fileHash)
+selectFile :: FileID -> AppM (Maybe File)
+selectFile fileUUID = do
+  Env {..} <- ask
+  liftIO $ Protolude.headMay <$> query dbConnection q (Only fileUUID)
   where
-    q = "select * from files where hash = ?;"
+    q = "select * from files where file_id = ? ORDER BY name ASC;"
 
-selectFileByFullPath :: Env -> FilePath -> IO (Maybe File)
-selectFileByFullPath Env {..} filePath =
-  Protolude.headMay <$> query dbConnection q (Only filePath)
+selectFileByFullPath :: FilePath -> AppM (Maybe File)
+selectFileByFullPath filePath = do
+  Env {..} <- ask
+  liftIO $ Protolude.headMay <$> query dbConnection q (Only filePath)
   where
-    q = "select * from files where path = ?;"
+    q = "select * from files where path = ? ORDER BY name ASC;"
 
-selectFilesByDirectory :: Env -> DirectoryID -> IO [File]
-selectFilesByDirectory Env {..} = query dbConnection q . Only
+selectFilesByDirectory :: DirectoryID -> AppM [File]
+selectFilesByDirectory dirID = do
+  Env {..} <- ask
+  liftIO $ query dbConnection q $ Only dirID
   where
-    q = "select * from files where directory = ?;"
+    q = "select * from files where directory = ? ORDER BY name ASC;"
 
-updateFileByFullPath :: Env -> FilePath -> IO ()
-updateFileByFullPath Env {..} =
-  execute dbConnection "update files set hash = ?;" . Only <=< hashFile
+deleteFile :: FileID -> AppM ()
+deleteFile fileID = do
+  Env {..} <- ask
+  liftIO $ execute dbConnection "delete from files where file_id = ?;" $ Only fileID
 
-deleteFile :: Env -> Hash -> IO ()
-deleteFile Env {..} =
-  execute dbConnection "delete from files where hash = ?;" . Only
+deleteFileByFullPath :: FilePath -> AppM ()
+deleteFileByFullPath fp = do
+  Env {..} <- ask
+  liftIO $ execute dbConnection "delete from files where path = ?;" $ Only fp
 
-deleteFileByFullPath :: Env -> FilePath -> IO ()
-deleteFileByFullPath Env {..} =
-  execute dbConnection "delete from files where path = ?;" . Only
-
-deleteDirectoryByFullPath :: Env -> FilePath -> IO ()
-deleteDirectoryByFullPath env =
-  selectDirectoryByFullPath env >=> \case
+deleteDirectoryByFullPath :: FilePath -> AppM ()
+deleteDirectoryByFullPath fp = do
+  selectDirectoryByFullPath fp >>= \case
     Nothing -> pure ()
-    Just dir -> deleteDirectory env . directoryID $ dir
+    Just dir -> deleteDirectory $ directoryID dir
 
-deleteDirectory :: Env -> DirectoryID -> IO ()
-deleteDirectory Env {..} uuid =
-  execute dbConnection "delete from directories where uuid = ?;" $ Only uuid
+deleteDirectory :: DirectoryID -> AppM ()
+deleteDirectory uuid = do
+  Env {..} <- ask
+  liftIO $ execute dbConnection "delete from directories where directory_id = ?;" $ Only uuid
 
-insertRootDirectory :: Env -> IO Directory
-insertRootDirectory env@Env {..} = do
+insertRootDirectory :: AppM Directory
+insertRootDirectory = do
+  Env {..} <- ask
   directoryID <- nextDirectoryID
-  directoryPath <- makeAbsolute rootDir
+  directoryPath <- liftIO $ makeAbsolute rootDir
   let directoryName = Prelude.last $ splitDirectories directoryPath
   let directoryParentID = Nothing
   let directory = Directory {..}
-  execute dbConnection "insert into directories values(?,?,?,?);" directory
-  selectRootDirectory env
+  liftIO $ execute dbConnection "insert into directories values(?,?,?,?);" directory
+  selectRootDirectory
 
-insertDirectory :: Env -> FilePath -> IO Directory
-insertDirectory env@Env {..} directoryPath
-  | isRootDirectory = selectRootDirectory env
-  | otherwise = do
-    mDir <- selectDirectoryByFullPath env directoryPath
-    case mDir of
-      Just dir -> pure dir
-      Nothing -> do
-        let directoryName = takeBaseName directoryPath
-            directoryParentPath = takeDirectory directoryPath
-        directoryParent <- insertDirectory env directoryParentPath
-        let directoryParentID = Just $ directoryID directoryParent
-        directoryID <- nextDirectoryID
-        let dir = Directory {..}
-        execute dbConnection "insert into directories values(?,?,?,?);" dir
-        fromJust <$> selectDirectory env directoryID
-  where
-    isRootDirectory = makeRelative rootDir directoryPath == "."
+insertDirectory :: FilePath -> AppM Directory
+insertDirectory directoryPath = do
+  Env {..} <- ask
+  let isRootDirectory = makeRelative rootDir directoryPath == "."
+  if isRootDirectory
+    then selectRootDirectory
+    else do
+      mDir <- selectDirectoryByFullPath directoryPath
+      case mDir of
+        Just dir -> pure dir
+        Nothing -> do
+          let directoryName = takeBaseName directoryPath
+              directoryParentPath = takeDirectory directoryPath
+          directoryParent <- insertDirectory directoryParentPath
+          let directoryParentID = Just $ directoryID directoryParent
+          directoryID <- nextDirectoryID
+          let dir = Directory {..}
+          liftIO $ execute dbConnection "insert into directories values(?,?,?,?);" dir
+          fromJust <$> selectDirectory directoryID
 
-insertFile :: Env -> FilePath -> IO ()
-insertFile env@Env {..} filePath' = withTransaction dbConnection $ do
-  filePath <- makeAbsolute filePath'
-  let directoryPath = takeDirectory filePath
-  dir <- insertDirectory env directoryPath
-  let fileName = takeFileName filePath
-  let fileDirectoryID = directoryID dir
-  fileHash <- hashFile filePath
-  let file = File {..}
-  execute dbConnection "INSERT or REPLACE INTO files values(?,?,?,?);" file
+insertFile :: FilePath -> AppM ()
+insertFile filePath' = do
+  env@(Env {..}) <- ask
+  liftIO $ withTransaction dbConnection $ do
+    filePath <- makeAbsolute filePath'
+    let directoryPath = takeDirectory filePath
+    Right dir <- runExceptT $ runReaderT (insertDirectory directoryPath) env
+    let fileName = takeFileName filePath
+    let fileDirectoryID = directoryID dir
+    fileID <- nextFileID
+    fileSize <- getFileSize filePath
+    let file = File {..}
+    execute dbConnection "INSERT or REPLACE INTO files values(?,?,?,?,?);" file

@@ -8,12 +8,17 @@
 
 module SyncBox.Render where
 
+import Control.Arrow ((>>>))
 import qualified Data.ByteString.Lazy as BS
 import Data.Text (pack)
 import qualified Data.Text as T
+import Formatting ((%))
+import qualified Formatting as F
 import Network.HTTP.Types.Status
 import Network.Wai
-import Protolude hiding (div, hash, head, link)
+import Protolude hiding (div, hash, head, link, (%))
+import Servant (linkURI)
+import Servant.API (Link)
 import SyncBox.Types
 import System.FilePath
 import Text.Blaze.Html.Renderer.Pretty
@@ -37,45 +42,94 @@ renderFile f@File {..} =
         "mov" -> renderVideo
         "mkv" -> renderVideo
         "mp4" -> renderVideo
+        "txt" -> renderTxt
+        "md" -> renderTxt
+        "nix" -> renderTxt
         _ -> const mempty
     section ! Attr.style flexColumnCenter $ do
       p $ text $ pack filePath
       a ! Attr.href (fileURI Download f) ! Attr.style "align-self:center" $
         button "Download"
 
+renderFileSize :: Integer -> Text
+renderFileSize x
+  | x < baseI 1 = F.sformat (F.int % " B") x
+  | x < baseI 2 = F.sformat (F.int % " KB") (x `Prelude.div` baseI 1)
+  | x < baseI 3 = F.sformat (F.fixed 1 % " MB") (y / baseR 2)
+  | x < baseI 4 = F.sformat (F.fixed 1 % " GB") (y / baseR 3)
+  | otherwise = F.sformat (F.fixed 1 % " TB") (y / baseR 4)
+  where
+    baseI :: Integer -> Integer
+    baseI n = (1024 :: Integer) ^ n
+    baseR :: Double -> Double
+    baseR n = 1024 ** n
+    y = fromInteger x
+
 renderDirectory :: Directory -> [Directory] -> [File] -> Html
-renderDirectory dir@Directory {..} subDirs files =
+renderDirectory Directory {..} subDirs files =
   main $ do
     section $ h3 $ text $ pack directoryName
-    section $ do
-      mapM_ (p . renderDirectoryLink Preview) subDirs
-      mapM_ (p . renderFileLink Preview) files
-    section ! Attr.style flexColumnCenter $ do
-      a ! Attr.href (directoryURI Download dir) ! Attr.style "align-self:center" $
-        button "Download everything"
+    section $ table $ do
+      mapM_ (renderDirectoryLink Preview) subDirs
+      mapM_ (renderFileLink Preview) files
+    section ! Attr.style flexColumnCenter
+      $ a
+        ! Attr.href (linkHref $ downloadFolderLink directoryID)
+        ! Attr.style "align-self:center"
+      $ button "Download everything"
+
+--------------------------------------------------------------------------------
+
+previewFolderLink :: DirectoryID -> Link
+previewFolderLink = folderPreview links
+
+downloadFolderLink :: DirectoryID -> Link
+downloadFolderLink = folderDownload links
+
+previewFileLink :: FileID -> Link
+previewFileLink = filePreview links
+
+downloadFileLink :: FileID -> Link
+downloadFileLink = fileDownload links
+
+linkHref :: Link -> AttributeValue
+linkHref l = toValue ("/" <> show (linkURI l) :: Text)
+
+--------------------------------------------------------------------------------
 
 flexColumnCenter :: AttributeValue
 flexColumnCenter = "align-self:center; display:flex; flex-direction:column"
 
 fileURI :: BrowserAction -> File -> AttributeValue
-fileURI ba File {..} =
-  toValue $ T.unpack ("/file/" <> unHash fileHash) <> queryParams ba
+fileURI Preview = fileID >>> previewFileLink >>> linkHref
+fileURI Download = fileID >>> downloadFileLink >>> linkHref
 
 directoryURI :: BrowserAction -> Directory -> AttributeValue
-directoryURI ba Directory {..} =
-  toValue $ toS ("/folder/" <> unUUID directoryID) <> queryParams ba
+directoryURI Preview = directoryID >>> previewFolderLink >>> linkHref
+directoryURI Download = directoryID >>> downloadFolderLink >>> linkHref
 
-queryParams :: BrowserAction -> FilePath
-queryParams Preview = "?preview"
-queryParams Download = "?download"
+--------------------------------------------------------------------------------
+-- List view
 
 renderDirectoryLink :: BrowserAction -> Directory -> Html
-renderDirectoryLink ba dir =
-  a ! Attr.href (directoryURI ba dir) $ text $ pack $ directoryName dir
+renderDirectoryLink ba dir = tr $ do
+  td ! Attr.class_ "w-100 tc" $ text "-"
+  td ! Attr.class_ "w-100" $
+    a ! Attr.href (directoryURI ba dir) $
+      text $
+        pack $
+          directoryName dir
 
 renderFileLink :: BrowserAction -> File -> Html
-renderFileLink ba file =
-  a ! Attr.href (fileURI ba file) $ text $ pack $ fileName file
+renderFileLink ba file@File {..} = tr $ do
+  td ! Attr.class_ "w-100 tc" $ text $ renderFileSize fileSize
+  td ! Attr.class_ "w-100" $
+    a ! Attr.href (fileURI ba file) $
+      text $
+        pack fileName
+
+--------------------------------------------------------------------------------
+-- Cover view
 
 renderVideo :: File -> Html
 renderVideo file =
@@ -83,6 +137,12 @@ renderVideo file =
 
 renderImage :: File -> Html
 renderImage file = div $ img ! src (fileURI Download file)
+
+renderTxt :: File -> Html
+renderTxt file = div $ code $ text ""
+
+--------------------------------------------------------------------------------
+-- Template
 
 htmlToResponse :: Html -> Response
 htmlToResponse page =
@@ -94,11 +154,13 @@ htmlToResponse page =
             docTypeHtml $ do
               head $ do
                 link ! rel "stylesheet" ! href awsm
+                link ! rel "stylesheet" ! href tachyons
                 H.style $ toHtml $ T.unlines styles
               body page
   where
     styles =
-      [ "main{display:flex; flex-direction: column; justify-content: center; height:100%;}",
-        "body{height:calc(100vh - 2.8rem); position:relative}"
+      [ "main{display:flex; flex-direction: column; justify-content: center; height:100%; overflow-y: auto}",
+        "body{position:relative;}"
       ]
     awsm = "https://unpkg.com/awsm.css/dist/awsm.min.css"
+    tachyons = "https://unpkg.com/tachyons@4.12.0/css/tachyons.min.css"

@@ -1,4 +1,4 @@
-{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -15,43 +15,55 @@ module SyncBox.Server where
 
 import Conduit
 import Control.Lens hiding ((<.>))
-import Control.Monad.Catch
-import Control.Monad.Trans.Control
-import Data.ByteString (singleton)
-import Data.ByteString.Builder (byteString)
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Conduit.List as Conduit
+import Data.Conduit.Process
 import Data.Generics.Labels ()
+import Data.Text (pack)
 import Database.SQLite.Simple
-import Network.HTTP.Types.Status
 import Network.Mime (defaultMimeLookup)
 import Network.Wai
-import Network.Wai.Conduit
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.RequestLogger
 import Options.Generic
-import Protolude hiding (div, hash, head, link, yield, (<.>))
-import qualified Streamly.Prelude as S
-import qualified Streamly.System.Process as Process
+import Protolude hiding (Handler, div, hash, head, link, yield, (<.>))
+import Servant.API
+import Servant.Conduit ()
+import Servant.Server
+import Servant.Server.Generic (AsServerT, genericServeT)
 import SyncBox.Database
 import SyncBox.Render
 import SyncBox.Types
-import System.Directory (makeAbsolute)
+import System.Directory (canonicalizePath, makeAbsolute)
 import System.Directory.Recursive (getFilesRecursive)
 import System.FSNotify as FS
-import System.FilePath
+import Text.Blaze.Html (Html)
 
 --------------------------------------------------------------------------------
 
-processDirectory :: Env -> Directory -> IO ()
-processDirectory env dir = mdo
-  files <- getFilesRecursive $ directoryPath dir
-  mapM_ (insertFile env) files
+server :: SyncBoxRoutes (AsServerT AppM)
+server =
+  SyncBoxRoutes
+    { folderPreview = handleFolderPreview,
+      folderDownload = handleFolderDownload,
+      filePreview = handleFilePreview,
+      fileDownload = handleFileDownload,
+      indexPage = handleIndex
+    }
 
-processRootDirectory :: Env -> IO ()
-processRootDirectory env = mdo
-  void $ insertRootDirectory env
-  selectRootDirectory env >>= processDirectory env
+app :: Env -> Application
+app env = genericServeT (nt env) server
+  where
+    nt :: Env -> AppM a -> Handler a
+    nt en appM = Handler $ runReaderT appM en
+
+processDirectory :: Directory -> AppM ()
+processDirectory dir = mdo
+  liftIO $ putStrLn $ "Processing " <> directoryName dir
+  files <- liftIO $ getFilesRecursive $ directoryPath dir
+  mapM_ insertFile files
+
+processRootDirectory :: AppM ()
+processRootDirectory = mdo
+  insertRootDirectory >> selectRootDirectory >>= processDirectory
 
 --------------------------------------------------------------------------------
 
@@ -62,115 +74,93 @@ printDB Env {..} = do
   mapM_ print directories
   mapM_ print files
 
-processFSEvent :: Env -> FS.Event -> IO ()
-processFSEvent env evt = void $ processEvent evt
+processFSEvent :: FS.Event -> AppM ()
+processFSEvent evt = void $ processEvent evt
   where
     processEvent = \case
-      (FS.Added filepath _ False) -> insertFile env filepath
-      (FS.Removed filepath _ False) -> deleteFileByFullPath env filepath
-      (FS.Modified filepath _ False) -> updateFileByFullPath env filepath
+      (FS.Added filepath _ False) -> insertFile filepath
+      (FS.Removed filepath _ False) -> deleteFileByFullPath filepath
       (FS.Added filepath _ True) ->
-        insertDirectory env filepath >>= processDirectory env
-      (FS.Removed filepath _ True) -> deleteDirectoryByFullPath env filepath
+        insertDirectory filepath >>= processDirectory
+      (FS.Removed filepath _ True) -> deleteDirectoryByFullPath filepath
       _ -> pure ()
 
 --------------------------------------------------------------------------------
 
-parseActionFromRequest :: Request -> BrowserAction
-parseActionFromRequest request = queryToAction
-  where
-    queryItems = queryString request
-    queryToAction = case queryItems of
-      [("preview", _)] -> Preview
-      _ -> Download
-
-makeApplication :: Env -> Application
-makeApplication env request respond = do
-  response <-
-    case (pathInfo request, parseActionFromRequest request) of
-      ([], _) -> handleIndex env
-      (["file", fh], Preview) -> handleFilePreview env $ Hash fh
-      (["file", fh], Download) -> handleFileDownload env $ Hash fh
-      (["folder", uuid], Preview) ->
-        handleFolderPreview env $ DirectoryID uuid
-      (["folder", uuid], Download) -> runResourceT $ do
-        handleFolderDownload env $ DirectoryID uuid
-      _ -> pure response404
-  respond response
-
-maybe404orCont :: Applicative f => (a -> f Response) -> Maybe a -> f Response
-maybe404orCont _ Nothing = pure response404
+maybe404orCont :: (a -> AppM Html) -> Maybe a -> AppM Html
+maybe404orCont _ Nothing = throwIO err404
 maybe404orCont cont (Just v) = cont v
 
-response404 :: Response
-response404 = responseLBS status404 [] ""
+-- response404 :: Response
+-- response404 = responseLBS status404 [] ""
 
-handleFilePreview :: Env -> Hash -> IO Response
-handleFilePreview env fh = do
-  mFile <- selectFile env fh
-  maybe404orCont (pure . htmlToResponse . renderFile) mFile
+handleFilePreview :: FileID -> AppM Html
+handleFilePreview fh = do
+  mFile <- selectFile fh
+  maybe404orCont (pure . renderFile) mFile
 
-handleFileDownload :: Env -> Hash -> IO Response
-handleFileDownload env@Env {..} path =
-  selectFile env path >>= \case
-    Nothing -> pure $ responseLBS status404 [] ""
-    Just File {..} -> do
-      let mimeType = defaultMimeLookup $ toS filePath
-      let respHeaders =
-            [ ("Content-Type", mimeType),
-              ( "Content-Disposition",
-                "attachment; filename="
-                  <> encodeUtf8 (toS $ takeFileName filePath)
-              )
-            ]
-      responseLBS status200 respHeaders <$> BSL.readFile (rootDir </> filePath)
+handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
+handleFileDownload path =
+  selectFile path >>= \case
+    Nothing -> throwError err404
+    Just file@(File {..}) -> do
+      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
+      let downloadName = pack $ "syncbox-" <> fileName <> ".tar"
+      pure $
+        addHeader (makeAttachment downloadName) $
+          addHeader mimeType $
+            compressFile file
 
-handleFolderPreview :: Env -> DirectoryID -> IO Response
-handleFolderPreview env uuid =
-  selectDirectory env uuid >>= maybe404orCont \dir -> do
-    subdDirs <- selectSubDirectories env uuid
-    files <- selectFilesByDirectory env uuid
-    pure $ htmlToResponse $ renderDirectory dir subdDirs files
+makeAttachment :: Text -> Text
+makeAttachment fileName = "attachment; filename=" <> fileName
 
-compressDirectory ::
-  ( S.IsStream t,
-    MonadIO m,
-    MonadBaseControl IO m,
-    MonadCatch m,
-    Monad (t m)
-  ) =>
-  Directory ->
-  t m Word8
-compressDirectory Directory {..} =
-  Process.toBytes "tar" $
-    toS <$> ["-cvzO", "-C", directoryPath </> "..", directoryName]
+handleFolderPreview :: DirectoryID -> AppM Html
+handleFolderPreview uuid = do
+  selectDirectory uuid
+    >>= maybe404orCont
+      ( \dir -> do
+          subdDirs <- selectSubDirectories uuid
+          files <- selectFilesByDirectory uuid
+          pure $ renderDirectory dir subdDirs files
+      )
 
 handleFolderDownload ::
-  (MonadResource m, MonadIO m) =>
-  Env ->
   DirectoryID ->
-  m Response
-handleFolderDownload env uuid = do
-  mDir <- liftIO $ selectDirectory env uuid
+  AppM (WithContent (ConduitT Void ByteString IO ()))
+handleFolderDownload uuid = do
+  mDir <- selectDirectory uuid
   case mDir of
-    Nothing -> pure $ responseLBS status404 [] mempty
+    Nothing -> throwIO err404
     Just dir@Directory {..} -> do
-      let archiveName = directoryName <> ".tgz"
-      let fileName = encodeUtf8 (toS $ "syncbox-" <> archiveName)
-      let mimeType = defaultMimeLookup $ toS archiveName
-      let respHeaders =
-            [ ("Content-Type", mimeType),
-              ("Content-Disposition", "attachment; filename=" <> fileName)
-            ]
-      let tgzConduit = Conduit.unfoldM S.uncons $ compressDirectory dir
+      let fileName = pack $ "syncbox-" <> directoryName <> ".tar"
+      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup "file.tar"
       pure $
-        responseSource status200 respHeaders $
-          tgzConduit .| mapC (Chunk . byteString . singleton)
+        addHeader (makeAttachment fileName) $
+          addHeader mimeType $
+            compressDirectory dir
 
-handleIndex :: Env -> IO Response
-handleIndex env = do
-  root <- selectRootDirectory env
-  handleFolderPreview env $ directoryID root
+handleIndex :: AppM Html
+handleIndex = do
+  root <- selectRootDirectory
+  handleFolderPreview $ directoryID root
+
+------------------------------------------------------------------------------------------
+
+compressDirectory :: Directory -> ConduitT Void ByteString IO ()
+compressDirectory Directory {..} = do
+  wd <- liftIO $ canonicalizePath $ directoryPath <> "/.."
+  let args = toS <$> ["-cvO", "-C", pack wd, pack directoryPath]
+  let cmd = proc "tar" args
+  (Inherited, output, Inherited, _) <- streamingProcess cmd
+  output
+
+compressFile :: File -> ConduitT Void ByteString IO ()
+compressFile File {..} = do
+  let wd = "."
+  let args = toS <$> ["-cvO", "-C", pack wd, pack filePath]
+  let cmd = proc "tar" args
+  (Inherited, output, Inherited, _) <- streamingProcess cmd
+  output
 
 ------------------------------------------------------------------------------------------
 
@@ -184,8 +174,8 @@ instance ParseRecord ServerOptions
 
 --------------------------------------------------------------------------------
 
-main :: IO ()
-main = do
+runCLI :: IO ()
+runCLI = do
   opts' :: ServerOptions <- getRecord "syncbox"
   opts <- do
     absPath <- makeAbsolute $ root opts'
@@ -194,7 +184,7 @@ main = do
     let env = Env (root opts) db
     putStrLn ("Initializing" :: Text)
     initDB db
-    processRootDirectory env
+    void $ runAppM env processRootDirectory
     putStrLn ("Starting FS Watcher" :: Text)
     withManagerConf defaultConfig {confDebounce = NoDebounce} $ \mgr -> do
       -- start a watching job (in the background)
@@ -203,6 +193,6 @@ main = do
           mgr -- manager
           (root opts) -- directory to watch
           (const True) -- predicate
-          (processFSEvent env) -- action
+          (void . runAppM env . processFSEvent)
       putStrLn ("Starting server" :: Text)
-      run (port opts) . logStdout $ makeApplication env
+      run (port opts) . logStdout $ app env
