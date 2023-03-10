@@ -43,8 +43,8 @@ dependencies:
   - protolude
   - servant
   - servant-blaze
-  - servant-server
   - servant-conduit
+  - servant-server
   - sqlite-simple
   - text
   - uuid

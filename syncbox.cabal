@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Main
+      SyncBox.API
       SyncBox.Database
       SyncBox.Render
       SyncBox.Server
@@ -72,6 +73,7 @@ library
 executable syncbox
   main-is: Main.hs
   other-modules:
+      SyncBox.API
       SyncBox.Database
       SyncBox.Render
       SyncBox.Server

@@ -29,6 +29,7 @@ import Servant.API
 import Servant.Conduit ()
 import Servant.Server
 import Servant.Server.Generic (AsServerT, genericServeT)
+import SyncBox.API
 import SyncBox.Database
 import SyncBox.Render
 import SyncBox.Types

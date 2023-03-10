@@ -19,6 +19,7 @@ import Network.Wai
 import Protolude hiding (div, hash, head, link, (%))
 import Servant (linkURI)
 import Servant.API (Link)
+import SyncBox.API
 import SyncBox.Types
 import System.FilePath
 import Text.Blaze.Html.Renderer.Pretty
