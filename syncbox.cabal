@@ -40,6 +40,8 @@ library
       base
     , blaze-html
     , bytestring
+    , co-log
+    , co-log-core
     , conduit
     , conduit-extra
     , dir-traverse
@@ -86,6 +88,8 @@ executable syncbox
       base
     , blaze-html
     , bytestring
+    , co-log
+    , co-log-core
     , conduit
     , conduit-extra
     , dir-traverse

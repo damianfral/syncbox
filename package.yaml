@@ -26,6 +26,8 @@ dependencies:
   - bytestring
   - conduit
   - conduit-extra
+  - co-log
+  - co-log-core
   - directory
   - dir-traverse
   - exceptions

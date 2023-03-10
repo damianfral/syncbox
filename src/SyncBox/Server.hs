@@ -13,6 +13,9 @@
 
 module SyncBox.Server where
 
+import Colog (log)
+import Colog.Actions
+import Colog.Core
 import Conduit
 import Control.Lens hiding ((<.>))
 import Data.Conduit.Process
@@ -24,7 +27,7 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.RequestLogger
 import Options.Generic
-import Protolude hiding (Handler, div, hash, head, link, yield, (<.>))
+import Protolude hiding (Handler, div, hash, head, link, log, yield, (<.>))
 import Servant.API
 import Servant.Conduit ()
 import Servant.Server
@@ -50,25 +53,25 @@ server =
       indexPage = handleIndex
     }
 
-app :: Env -> Application
+app :: Env AppM -> Application
 app env = genericServeT (nt env) server
   where
-    nt :: Env -> AppM a -> Handler a
-    nt en appM = Handler $ runReaderT appM en
+    nt :: Env AppM -> AppM a -> Handler a
+    nt en appM = Handler $ runReaderT (unAppM appM) en
 
 processDirectory :: Directory -> AppM ()
 processDirectory dir = mdo
-  liftIO $ putStrLn $ "Processing " <> directoryName dir
+  log I $ pack $ "Processing " <> directoryName dir
   files <- liftIO $ getFilesRecursive $ directoryPath dir
   mapM_ insertFile files
 
 processRootDirectory :: AppM ()
-processRootDirectory = mdo
+processRootDirectory = do
   insertRootDirectory >> selectRootDirectory >>= processDirectory
 
 --------------------------------------------------------------------------------
 
-printDB :: Env -> IO ()
+printDB :: Env AppM -> IO ()
 printDB Env {..} = do
   directories :: [Directory] <- query_ dbConnection "SELECT * FROM directories;"
   files :: [File] <- query_ dbConnection "SELECT * FROM files;"
@@ -76,7 +79,9 @@ printDB Env {..} = do
   mapM_ print files
 
 processFSEvent :: FS.Event -> AppM ()
-processFSEvent evt = void $ processEvent evt
+processFSEvent evt = do
+  log I $ show evt
+  void $ processEvent evt
   where
     processEvent = \case
       (FS.Added filepath _ False) -> insertFile filepath
@@ -91,9 +96,6 @@ processFSEvent evt = void $ processEvent evt
 maybe404orCont :: (a -> AppM Html) -> Maybe a -> AppM Html
 maybe404orCont _ Nothing = throwIO err404
 maybe404orCont cont (Just v) = cont v
-
--- response404 :: Response
--- response404 = responseLBS status404 [] ""
 
 handleFilePreview :: FileID -> AppM Html
 handleFilePreview fh = do
@@ -182,18 +184,21 @@ runCLI = do
     absPath <- makeAbsolute $ root opts'
     pure $ opts' & #root .~ absPath
   withConnection ":memory:" $ \db -> do
-    let env = Env (root opts) db
-    putStrLn ("Initializing" :: Text)
+    let env = Env (root opts) db richMessageAction
     initDB db
     void $ runAppM env processRootDirectory
-    putStrLn ("Starting FS Watcher" :: Text)
-    withManagerConf defaultConfig {confDebounce = NoDebounce} $ \mgr -> do
-      -- start a watching job (in the background)
+    withManagerConf defaultConfig {confDebounce = NoDebounce} $ \mgr ->
+      void $ runAppM env $ watcher opts mgr env
+  where
+    watcher :: ServerOptions -> WatchManager -> Env AppM -> AppM ()
+    watcher opts mgr env = do
+      log I "Starting FS Watcher"
       void $
-        watchTree
-          mgr -- manager
-          (root opts) -- directory to watch
-          (const True) -- predicate
-          (void . runAppM env . processFSEvent)
-      putStrLn ("Starting server" :: Text)
-      run (port opts) . logStdout $ app env
+        liftIO $
+          watchTree
+            mgr -- manager
+            (root opts) -- directory to watch
+            (const True) -- predicate
+            (void . runAppM env . processFSEvent)
+      log I "Starting server"
+      liftIO $ run (port opts) . logStdout $ app env

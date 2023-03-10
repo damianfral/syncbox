@@ -3,17 +3,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module SyncBox.Types where
 
-import Conduit
-import Control.Applicative
+import Colog
 import Data.Generics.Labels ()
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
@@ -84,15 +85,33 @@ instance ToField UUID where
 
 data BrowserAction = Preview | Download
 
-data Env = Env
+data Env m = Env
   { rootDir :: FilePath,
-    dbConnection :: Connection
+    dbConnection :: Connection,
+    logAction :: LogAction m Message
   }
   deriving (Generic)
 
 --------------------------------------------------------------------------------
 
-type AppM = ReaderT Env (ExceptT ServerError IO)
+newtype AppM a = AppM {unAppM :: ReaderT (Env AppM) (ExceptT ServerError IO) a}
+  deriving newtype
+    ( Functor,
+      Applicative,
+      Monad,
+      MonadReader (Env AppM),
+      MonadIO,
+      MonadError ServerError
+    )
 
-runAppM :: Env -> AppM a -> IO (Either ServerError a)
-runAppM env = runExceptT . flip runReaderT env
+runAppM :: Env AppM -> AppM a -> IO (Either ServerError a)
+runAppM env = runExceptT . flip runReaderT env . unAppM
+
+instance HasLog (Env m) Message m where
+  getLogAction :: Env m -> LogAction m Message
+  getLogAction = logAction
+  {-# INLINE getLogAction #-}
+
+  setLogAction :: LogAction m Message -> Env m -> Env m
+  setLogAction newLogAction env = env {logAction = newLogAction}
+  {-# INLINE setLogAction #-}

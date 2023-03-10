@@ -15,10 +15,12 @@
 
 module SyncBox.Database where
 
+import Colog
+import Data.Text (pack)
 import Data.UUID.V4
 import Database.SQLite.Simple
 import qualified NeatInterpolation
-import Protolude hiding (div, head, link)
+import Protolude hiding (div, head, link, log)
 import Protolude.Partial (fromJust)
 import SyncBox.Types
 import System.Directory (getFileSize, makeAbsolute)
@@ -185,10 +187,11 @@ insertDirectory directoryPath = do
 insertFile :: FilePath -> AppM ()
 insertFile filePath' = do
   env@(Env {..}) <- ask
+  log I $ "Inserting file: " <> pack filePath'
   liftIO $ withTransaction dbConnection $ do
     filePath <- makeAbsolute filePath'
     let directoryPath = takeDirectory filePath
-    Right dir <- runExceptT $ runReaderT (insertDirectory directoryPath) env
+    Right dir <- runAppM env $ insertDirectory directoryPath
     let fileName = takeFileName filePath
     let fileDirectoryID = directoryID dir
     fileID <- nextFileID
