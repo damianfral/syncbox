@@ -30,7 +30,6 @@ dependencies:
   - co-log-core
   - directory
   - dir-traverse
-  - exceptions
   - filepath
   - formatting
   - fsnotify
@@ -38,10 +37,8 @@ dependencies:
   - http-types
   - lens
   - mime-types
-  - monad-control
   - neat-interpolation
   - optparse-generic
-  - process
   - protolude
   - servant
   - servant-blaze
@@ -53,7 +50,6 @@ dependencies:
   - wai
   - wai-extra
   - warp
-  - zip-stream
 
 library:
   source-dirs: ./src/
