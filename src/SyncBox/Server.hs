@@ -27,7 +27,7 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.RequestLogger
 import Options.Generic
-import Protolude hiding (Handler, div, hash, head, link, log, yield, (<.>))
+import Protolude hiding (Handler, div, head, link, log)
 import Servant.API
 import Servant.Conduit ()
 import Servant.Server
@@ -118,7 +118,7 @@ makeAttachment :: Text -> Text
 makeAttachment fileName = "attachment; filename=\"" <> fileName <> "\""
 
 handleFolderPreview :: DirectoryID -> AppM Html
-handleFolderPreview uuid = do
+handleFolderPreview uuid =
   selectDirectory uuid
     >>= maybe404orCont
       ( \dir -> do

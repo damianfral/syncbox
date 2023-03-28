@@ -140,7 +140,7 @@ renderImage :: File -> Html
 renderImage file = div $ img ! src (fileURI Download file)
 
 renderTxt :: File -> Html
-renderTxt file = div $ code $ text ""
+renderTxt _ = div $ code $ text ""
 
 --------------------------------------------------------------------------------
 -- Template
