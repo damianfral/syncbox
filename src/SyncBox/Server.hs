@@ -108,14 +108,14 @@ handleFileDownload path =
     Nothing -> throwError err404
     Just file@(File {..}) -> do
       let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
-      let downloadName = pack $ "syncbox-" <> fileName <> ".tar"
+      let downloadName = pack $ "syncbox-" <> fileName <> ".tgz"
       pure $
         addHeader (makeAttachment downloadName) $
           addHeader mimeType $
             compressFile file
 
 makeAttachment :: Text -> Text
-makeAttachment fileName = "attachment; filename=" <> fileName
+makeAttachment fileName = "attachment; filename=\"" <> fileName <> "\""
 
 handleFolderPreview :: DirectoryID -> AppM Html
 handleFolderPreview uuid = do
@@ -136,7 +136,7 @@ handleFolderDownload uuid = do
     Nothing -> throwIO err404
     Just dir@Directory {..} -> do
       let fileName = pack $ "syncbox-" <> directoryName <> ".tar"
-      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup "file.tar"
+      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup fileName
       pure $
         addHeader (makeAttachment fileName) $
           addHeader mimeType $
@@ -160,7 +160,7 @@ compressDirectory Directory {..} = do
 compressFile :: File -> ConduitT Void ByteString IO ()
 compressFile File {..} = do
   let wd = "."
-  let args = toS <$> ["-cvO", "-C", pack wd, pack filePath]
+  let args = toS <$> ["-czvO", "-C", pack wd, pack filePath]
   let cmd = proc "tar" args
   (Inherited, output, Inherited, _) <- streamingProcess cmd
   output
