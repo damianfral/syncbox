@@ -20,10 +20,9 @@
     { self
     , nixpkgs
     , flake-utils
-    , nixops-plugged
     , nix-filter
     , ...
-    } @ inputs:
+    }:
     let
       pkgsFor = system:
         import nixpkgs {
@@ -48,16 +47,10 @@
             };
         in
         rec {
-          overlays = final: prev: with final.haskell.lib; {
+          overlays = final: prev: {
             haskellPackages = prev.haskellPackages.override (old: {
               overrides = final.lib.composeExtensions (old.overrides or (_: _: { }))
-                (self: super:
-                  let
-                    dontCheck = pkgs.haskell.lib.dontCheck;
-                    unmarkBroken = pkgs.haskell.lib.unmarkBroken;
-                  in
-
-                  {
+                (self: super: {
                     syncbox = self.generateOptparseApplicativeCompletions
                       [ "syncbox" ]
                       (self.callCabal2nix "syncbox" filteredSrc { });
@@ -93,24 +86,12 @@
               yamlfix
             ];
           };
-
-          # dev-shell = pkgs.mkShell {
-          #   buildInputs = with pkgs; [ alejandra ];
-          #   shellHook = ''
-          #     syncthing-proxy(){
-          #       nixops ssh -d fake.com fake -L 9999:localhost:8384 'echo "proxy to syncthing at http://localhost:9999"; read  -n 1'
-          #   '';
-          # };
-          # };
-
-
         }
       )
     // {
       nixopsConfigurations.default =
         let
           system = "x86_64-linux";
-          pkgs = pkgsFor system;
           syncbox = self.packages.${system}.syncbox;
           region = "eu-west-1";
           accessKeyId = "fake";
@@ -238,8 +219,8 @@
             };
         };
     };
-}
   nixConfig = {
     extra-substituters = "https://opensource.cachix.org";
     extra-trusted-public-keys = "opensource.cachix.org-1:6t9YnrHI+t4lUilDKP2sNvmFA9LCKdShfrtwPqj2vKc=";
   };
+}
