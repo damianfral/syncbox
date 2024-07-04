@@ -84,11 +84,11 @@ processFSEvent evt = do
   void $ processEvent evt
   where
     processEvent = \case
-      (FS.Added filepath _ False) -> insertFile filepath
-      (FS.Removed filepath _ False) -> deleteFileByFullPath filepath
-      (FS.Added filepath _ True) ->
+      (FS.Added filepath _ IsFile) -> insertFile filepath
+      (FS.Removed filepath _ IsFile) -> deleteFileByFullPath filepath
+      (FS.Added filepath _ IsDirectory) ->
         insertDirectory filepath >>= processDirectory
-      (FS.Removed filepath _ True) -> deleteDirectoryByFullPath filepath
+      (FS.Removed filepath _ IsDirectory) -> deleteDirectoryByFullPath filepath
       _ -> pure ()
 
 --------------------------------------------------------------------------------
@@ -187,8 +187,7 @@ runCLI = do
     let env = Env (root opts) db richMessageAction
     initDB db
     void $ runAppM env processRootDirectory
-    withManagerConf defaultConfig {confDebounce = NoDebounce} $ \mgr ->
-      void $ runAppM env $ watcher opts mgr env
+    withManager $ \mgr -> void $ runAppM env $ watcher opts mgr env
   where
     watcher :: ServerOptions -> WatchManager -> Env AppM -> AppM ()
     watcher opts mgr env = do
