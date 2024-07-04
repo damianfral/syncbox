@@ -75,7 +75,7 @@ initDB conn = mapM_ (execute_ conn) schema
 
 --------------------------------------------------------------------------------
 
-nextDirectoryID :: MonadIO m => m DirectoryID
+nextDirectoryID :: (MonadIO m) => m DirectoryID
 nextDirectoryID = liftIO $ DirectoryID <$> nextRandom
 
 nextFileID :: IO FileID
