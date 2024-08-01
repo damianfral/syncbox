@@ -155,16 +155,16 @@
     },
     "nixpkgs-stable": {
       "locked": {
-        "lastModified": 1718811006,
-        "narHash": "sha256-0Y8IrGhRmBmT7HHXlxxepg2t8j1X90++qRN3lukGaIk=",
+        "lastModified": 1720386169,
+        "narHash": "sha256-NGKVY4PjzwAa4upkGtAMz1npHGoRzWotlSnVlqI40mo=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "03d771e513ce90147b65fe922d87d3a0356fc125",
+        "rev": "194846768975b7ad2c4988bdb82572c00222c0d7",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-23.11",
+        "ref": "nixos-24.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -186,11 +186,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1720050288,
-        "narHash": "sha256-aCe2RoVmDLc6PSBXpB7NjWhJUyG8N9Eu69yHsXWVTr0=",
+        "lastModified": 1722529250,
+        "narHash": "sha256-cqiET5SCz8g5siHcdpjofRQrVSOZ1tKqhn/Ch+kpUIQ=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "f81c07adf0d2bdde04e82943e20c055ff91d4804",
+        "rev": "6c65243d9984e3f43c3ac136f92e862384849bdb",
         "type": "github"
       },
       "original": {
@@ -229,11 +229,11 @@
         "nixpkgs-stable": "nixpkgs-stable"
       },
       "locked": {
-        "lastModified": 1719259945,
-        "narHash": "sha256-F1h+XIsGKT9TkGO3omxDLEb/9jOOsI6NnzsXFsZhry4=",
+        "lastModified": 1721042469,
+        "narHash": "sha256-6FPUl7HVtvRHCCBQne7Ylp4p+dpP3P/OYuzjztZ4s70=",
         "owner": "cachix",
         "repo": "pre-commit-hooks.nix",
-        "rev": "0ff4381bbb8f7a52ca4a851660fc7a437a4c6e07",
+        "rev": "f451c19376071a90d8c58ab1a953c6e9840527fd",
         "type": "github"
       },
       "original": {
@@ -257,11 +257,11 @@
     "streamly": {
       "flake": false,
       "locked": {
-        "lastModified": 1719941850,
-        "narHash": "sha256-bixVXRgtB52HXujNNuNUEfBW/kV1Md8/Gst1eqJIh1M=",
+        "lastModified": 1722480450,
+        "narHash": "sha256-fD1kRyhsnb2h2prkZVnChfQnvOpc4NBXe6QyoAAcoEI=",
         "owner": "composewell",
         "repo": "streamly",
-        "rev": "39a800addc111ec70b8c6edbf308597ae2b1f3e2",
+        "rev": "d12e30b46f391a4a7c8caadd35d82133d5fee438",
         "type": "github"
       },
       "original": {
