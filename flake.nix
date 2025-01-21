@@ -2,7 +2,7 @@
   description = "syncbox";
 
   inputs = {
-    nixpkgs = {url = "github:NixOS/nixpkgs/release-24.05";};
+    nixpkgs = {url = "github:NixOS/nixpkgs/release-24.11";};
     nixops-plugged = {url = "github:lukebfox/nixops-plugged";};
     nix-filter.url = "github:numtide/nix-filter";
     flake-utils = {url = "github:numtide/flake-utils";};
