@@ -46,6 +46,7 @@
           hooks = {
             actionlint.enable = true;
             alejandra.enable = true;
+            deadnix.enable = true;
             hlint.enable = true;
             hpack.enable = true;
             markdownlint.enable = true;
@@ -59,7 +60,7 @@
             overrides =
               final.lib.composeExtensions (old.overrides or (_: _: {}))
               (
-                self: super: {
+                self: _super: {
                   syncbox =
                     self.generateOptparseApplicativeCompletions
                     ["syncbox"]
@@ -97,7 +98,7 @@
         };
 
         devShells.default = pkgs.haskellPackages.shellFor {
-          packages = p: [packages.syncbox];
+          packages = _p: [packages.syncbox];
           buildInputs = with pkgs;
           with pkgs.haskellPackages; [
             alejandra
