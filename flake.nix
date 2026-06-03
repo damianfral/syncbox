@@ -2,7 +2,7 @@
   description = "syncbox";
 
   inputs = {
-    nixpkgs = {url = "github:NixOS/nixpkgs/release-24.11";};
+    nixpkgs = {url = "github:NixOS/nixpkgs/release-26.05";};
     nix-filter.url = "github:numtide/nix-filter";
     flake-utils = {url = "github:numtide/flake-utils";};
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
