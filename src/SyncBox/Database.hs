@@ -102,7 +102,7 @@ selectDirectoryByFullPath filePath = do
   Env {..} <- ask
   liftIO $ Protolude.headMay <$> query dbConnection q (Only filePath)
   where
-    q = "select * from directories where path = ?; ORDER BY name ASC"
+    q = "select * from directories where path = ? ORDER BY name ASC;"
 
 selectSubDirectories :: DirectoryID -> AppM [Directory]
 selectSubDirectories dirID = do
