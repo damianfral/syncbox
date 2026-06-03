@@ -21,7 +21,7 @@ import Data.UUID.V4
 import Database.SQLite.Simple
 import qualified NeatInterpolation
 import Protolude hiding (div, head, link, log)
-import Protolude.Partial (fromJust)
+import Servant (err500)
 import SyncBox.Types
 import System.Directory (getFileSize, makeAbsolute)
 import System.FilePath
@@ -86,7 +86,9 @@ nextFileID = FileID <$> nextRandom
 selectRootDirectory :: AppM Directory
 selectRootDirectory = do
   Env {..} <- ask
-  liftIO $ Prelude.head <$> query_ dbConnection q
+  liftIO (headMay <$> query_ dbConnection q) >>= \case
+    Just dir -> pure dir
+    Nothing -> throwError err500
   where
     q = "select * from directories where parent IS NULL;"
 
@@ -162,7 +164,7 @@ insertRootDirectory = do
   let directoryParentID = Nothing
   let directory = Directory {..}
   liftIO $ execute dbConnection "insert into directories values(?,?,?,?);" directory
-  selectRootDirectory
+  pure directory
 
 insertDirectory :: FilePath -> AppM Directory
 insertDirectory directoryPath = do
@@ -182,19 +184,18 @@ insertDirectory directoryPath = do
           directoryID <- nextDirectoryID
           let dir = Directory {..}
           liftIO $ execute dbConnection "insert into directories values(?,?,?,?);" dir
-          fromJust <$> selectDirectory directoryID
+          pure dir
 
 insertFile :: FilePath -> AppM ()
 insertFile filePath' = do
-  env@(Env {..}) <- ask
+  Env {..} <- ask
   log I $ "Inserting file: " <> pack filePath'
-  liftIO $ withTransaction dbConnection $ do
-    filePath <- makeAbsolute filePath'
-    let directoryPath = takeDirectory filePath
-    Right dir <- runAppM env $ insertDirectory directoryPath
-    let fileName = takeFileName filePath
-    let fileDirectoryID = directoryID dir
-    fileID <- nextFileID
-    fileSize <- getFileSize filePath
-    let file = File {..}
-    execute dbConnection "INSERT or REPLACE INTO files values(?,?,?,?,?);" file
+  filePath <- liftIO $ makeAbsolute filePath'
+  let directoryPath = takeDirectory filePath
+  dir <- insertDirectory directoryPath
+  let fileName = takeFileName filePath
+  let fileDirectoryID = directoryID dir
+  fileID <- liftIO nextFileID
+  fileSize <- liftIO $ getFileSize filePath
+  let file = File {..}
+  liftIO $ execute dbConnection "INSERT or REPLACE INTO files values(?,?,?,?,?);" file

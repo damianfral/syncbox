@@ -35,7 +35,7 @@ renderFile :: File -> Html
 renderFile f@File {..} =
   main $ do
     section $
-      f & case Prelude.tail $ toLower <$> takeExtension filePath of
+      f & case drop 1 $ toLower <$> takeExtension filePath of
         "jpeg" -> renderImage
         "jpg" -> renderImage
         "png" -> renderImage

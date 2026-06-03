@@ -67,7 +67,8 @@ processDirectory dir = mdo
 
 processRootDirectory :: AppM ()
 processRootDirectory = do
-  insertRootDirectory >> selectRootDirectory >>= processDirectory
+  dir <- insertRootDirectory
+  processDirectory dir
 
 --------------------------------------------------------------------------------
 
