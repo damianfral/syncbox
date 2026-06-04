@@ -13,12 +13,14 @@
 
 module SyncBox.Server where
 
+import Codec.Archive.Tar (write)
+import Codec.Archive.Tar.Entry (packFileEntry, toTarPath)
+import qualified Codec.Compression.GZip as GZip
 import Colog (log)
 import Colog.Actions
 import Colog.Core
 import Conduit
 import Control.Lens hiding ((<.>))
-import Data.Conduit.Process
 import Data.Generics.Labels ()
 import Data.Text (pack)
 import Database.SQLite.Simple
@@ -36,10 +38,12 @@ import SyncBox.API
 import SyncBox.Database
 import SyncBox.Render
 import SyncBox.Types
-import System.Directory (canonicalizePath, makeAbsolute)
+import System.Directory (makeAbsolute)
 import System.Directory.Recursive (getFilesRecursive)
 import System.FSNotify as FS
+import System.FilePath (makeRelative, takeFileName)
 import Text.Blaze.Html (Html)
+import qualified Prelude
 
 --------------------------------------------------------------------------------
 
@@ -152,19 +156,25 @@ handleIndex = do
 
 compressDirectory :: Directory -> ConduitT Void ByteString IO ()
 compressDirectory Directory {..} = do
-  wd <- liftIO $ canonicalizePath $ directoryPath <> "/.."
-  let args = toS <$> ["-cvO", "-C", pack wd, pack directoryPath]
-  let cmd = proc "tar" args
-  (Inherited, output, Inherited, _) <- streamingProcess cmd
-  output
+  fps <- liftIO $ getFilesRecursive directoryPath
+  entries <- liftIO $ forM fps $ \fp -> do
+    let archivePath = makeRelative directoryPath fp
+        tarPath = case toTarPath False archivePath of
+          Right tp -> tp
+          Left err -> Prelude.error $ "Invalid tar path: " <> err
+    packFileEntry fp tarPath
+  let tarBS = write entries
+  sourceLazy tarBS
 
 compressFile :: File -> ConduitT Void ByteString IO ()
 compressFile File {..} = do
-  let wd = "."
-  let args = toS <$> ["-czvO", "-C", pack wd, pack filePath]
-  let cmd = proc "tar" args
-  (Inherited, output, Inherited, _) <- streamingProcess cmd
-  output
+  let archivePath = takeFileName filePath
+      tarPath = case toTarPath False archivePath of
+        Right tp -> tp
+        Left err -> Prelude.error $ "Invalid tar path: " <> err
+  entry <- liftIO $ packFileEntry filePath tarPath
+  let tarBS = write [entry]
+  sourceLazy $ GZip.compress tarBS
 
 ------------------------------------------------------------------------------------------
 

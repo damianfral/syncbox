@@ -72,20 +72,7 @@
         packages = rec {
           default = syncbox;
           syncbox = pkgs.haskell.lib.justStaticExecutables (
-            pkgs.haskellPackages.syncbox.overrideAttrs
-            (
-              oldAttrs: {
-                nativeBuildInputs =
-                  oldAttrs.nativeBuildInputs
-                  ++ [pkgs.makeWrapper];
-                postInstall =
-                  (oldAttrs.postInstall or "")
-                  + ''
-                    wrapProgram $out/bin/syncbox \
-                      --suffix PATH : ${pkgs.lib.makeBinPath [pkgs.github-cli]}
-                  '';
-              }
-            )
+            pkgs.haskellPackages.syncbox
           );
         };
         checks = {

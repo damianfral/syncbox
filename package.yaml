@@ -45,17 +45,18 @@ dependencies:
   - servant-conduit
   - servant-server
   - sqlite-simple
+  - tar
   - text
   - uuid
   - wai
   - wai-extra
   - warp
+  - zlib
 
 library:
   source-dirs: ./src/
 
 executables:
-
   syncbox:
     main         : Main.hs
     source-dirs  : ./src

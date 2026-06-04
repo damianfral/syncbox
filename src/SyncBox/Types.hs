@@ -15,7 +15,6 @@
 module SyncBox.Types where
 
 import Colog
-import Data.Generics.Labels ()
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
 import Database.SQLite.Simple
