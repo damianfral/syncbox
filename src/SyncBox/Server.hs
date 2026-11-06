@@ -70,9 +70,7 @@ processDirectory dir = mdo
   mapM_ insertFile files
 
 processRootDirectory :: AppM ()
-processRootDirectory = do
-  dir <- insertRootDirectory
-  processDirectory dir
+processRootDirectory = insertRootDirectory >>= processDirectory
 
 --------------------------------------------------------------------------------
 
@@ -114,43 +112,34 @@ handleFileDownload path =
     Just file@(File {..}) -> do
       let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
       let downloadName = pack $ "syncbox-" <> fileName <> ".tgz"
-      pure $
-        addHeader (makeAttachment downloadName) $
-          addHeader mimeType $
-            compressFile file
+      pure $ addHeader (makeAttachment downloadName) $ do
+        addHeader mimeType $ compressFile file
 
 makeAttachment :: Text -> Text
 makeAttachment fileName = "attachment; filename=\"" <> fileName <> "\""
 
 handleFolderPreview :: DirectoryID -> AppM Html
 handleFolderPreview uuid =
-  selectDirectory uuid
-    >>= maybe404orCont
-      ( \dir -> do
-          subdDirs <- selectSubDirectories uuid
-          files <- selectFilesByDirectory uuid
-          pure $ renderDirectory dir subdDirs files
-      )
+  selectDirectory uuid >>= maybe404orCont getDirAndRender
+  where
+    getDirAndRender dir = do
+      subdDirs <- selectSubDirectories uuid
+      files <- selectFilesByDirectory uuid
+      pure $ renderDirectory dir subdDirs files
 
 handleFolderDownload ::
-  DirectoryID ->
-  AppM (WithContent (ConduitT Void ByteString IO ()))
-handleFolderDownload uuid = do
-  mDir <- selectDirectory uuid
-  case mDir of
+  DirectoryID -> AppM (WithContent (ConduitT Void ByteString IO ()))
+handleFolderDownload uuid =
+  selectDirectory uuid >>= \case
     Nothing -> throwIO err404
     Just dir@Directory {..} -> do
       let fileName = pack $ "syncbox-" <> directoryName <> ".tar"
       let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup fileName
-      pure $
-        addHeader (makeAttachment fileName) $
-          addHeader mimeType $
-            compressDirectory dir
+      pure $ addHeader (makeAttachment fileName) $ do
+        addHeader mimeType $ compressDirectory dir
 
 handleIndex :: AppM Html
-handleIndex = do
-  root <- selectRootDirectory
-  handleFolderPreview $ directoryID root
+handleIndex = selectRootDirectory >>= handleFolderPreview . directoryID
 
 ------------------------------------------------------------------------------------------
 
@@ -203,12 +192,9 @@ runCLI = do
     watcher :: ServerOptions -> WatchManager -> Env AppM -> AppM ()
     watcher opts mgr env = do
       log I "Starting FS Watcher"
-      void $
-        liftIO $
-          watchTree
-            mgr -- manager
-            (root opts) -- directory to watch
-            (const True) -- predicate
-            (void . runAppM env . processFSEvent)
+      let dir = root opts
+      let actionPredicate = const True
+      let runApp = void . runAppM env . processFSEvent
+      void $ liftIO $ watchTree mgr dir actionPredicate runApp
       log I "Starting server"
       liftIO $ run (port opts) . logStdout $ app env

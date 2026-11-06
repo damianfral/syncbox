@@ -115,19 +115,14 @@ directoryURI Download = directoryID >>> downloadFolderLink >>> linkHref
 renderDirectoryLink :: BrowserAction -> Directory -> Html
 renderDirectoryLink ba dir = tr $ do
   td ! Attr.class_ "w-100 tc" $ text "-"
-  td ! Attr.class_ "w-100" $
-    a ! Attr.href (directoryURI ba dir) $
-      text $
-        pack $
-          directoryName dir
+  td ! Attr.class_ "w-100" $ do
+    a ! Attr.href (directoryURI ba dir) $ text $ pack $ directoryName dir
 
 renderFileLink :: BrowserAction -> File -> Html
 renderFileLink ba file@File {..} = tr $ do
   td ! Attr.class_ "w-100 tc" $ text $ renderFileSize fileSize
-  td ! Attr.class_ "w-100" $
-    a ! Attr.href (fileURI ba file) $
-      text $
-        pack fileName
+  td ! Attr.class_ "w-100" $ do
+    a ! Attr.href (fileURI ba file) $ text $ pack fileName
 
 --------------------------------------------------------------------------------
 -- Cover view
@@ -147,17 +142,13 @@ renderTxt _ = div $ code $ text ""
 
 htmlToResponse :: Html -> Response
 htmlToResponse page =
-  responseLBS status200 [] $
-    BS.fromStrict $
-      encodeUtf8 $
-        pack $
-          renderHtml $
-            docTypeHtml $ do
-              head $ do
-                link ! rel "stylesheet" ! href awsm
-                link ! rel "stylesheet" ! href tachyons
-                H.style $ toHtml $ T.unlines styles
-              body page
+  responseLBS status200 [] $ BS.fromStrict $ encodeUtf8 $ pack $ renderHtml $ do
+    docTypeHtml $ do
+      head $ do
+        link ! rel "stylesheet" ! href awsm
+        link ! rel "stylesheet" ! href tachyons
+        H.style $ toHtml $ T.unlines styles
+      body page
   where
     styles =
       [ "main{display:flex; flex-direction: column; justify-content: center; height:100%; overflow-y: auto}",
