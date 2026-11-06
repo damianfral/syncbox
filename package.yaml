@@ -10,6 +10,7 @@ copyright:           "2019 damianfral"
 extra-source-files:
 - README.md
 - ChangeLog.md
+- assets/style.css
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -31,6 +32,7 @@ dependencies:
   - co-log-core
   - directory
   - dir-traverse
+  - file-embed
   - filepath
   - formatting
   - fsnotify

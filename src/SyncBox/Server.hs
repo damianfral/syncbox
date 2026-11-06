@@ -103,7 +103,7 @@ maybe404orCont cont (Just v) = cont v
 handleFilePreview :: FileID -> AppM Html
 handleFilePreview fh = do
   mFile <- selectFile fh
-  maybe404orCont (pure . renderFile) mFile
+  maybe404orCont (pure . renderPage . renderFile) mFile
 
 handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
 handleFileDownload path =
@@ -125,7 +125,7 @@ handleFolderPreview uuid =
     getDirAndRender dir = do
       subdDirs <- selectSubDirectories uuid
       files <- selectFilesByDirectory uuid
-      pure $ renderDirectory dir subdDirs files
+      pure $ renderPage $ renderDirectory dir subdDirs files
 
 handleFolderDownload ::
   DirectoryID -> AppM (WithContent (ConduitT Void ByteString IO ()))

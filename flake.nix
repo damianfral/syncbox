@@ -37,6 +37,7 @@
           include = [
             "src/"
             "test/"
+            "assets/"
             "package.yaml"
             "LICENSE"
           ];
