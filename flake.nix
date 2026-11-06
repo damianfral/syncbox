@@ -1,5 +1,5 @@
 {
-  description = "syncbox";
+  description = "Syncbox synchronization tool (Haskell)";
 
   inputs = {
     nixpkgs = {url = "github:NixOS/nixpkgs/release-26.05";};
