@@ -26,12 +26,15 @@ type WithContent a = Headers HeadersContent a
 
 --------------------------------------------------------------------------------
 
-type IndexAPI = Get '[HTML] Blaze.Html
+type IndexAPI =
+  QueryParam "view" ViewMode
+    :> Get '[HTML] Blaze.Html
 
 type FolderPreviewAPI =
   "folder"
     :> Capture "nodeID" DirectoryID
     :> "preview"
+    :> QueryParam "view" ViewMode
     :> Get '[HTML] Blaze.Html
 
 type FolderDownloadAPI =
@@ -44,6 +47,7 @@ type FilePreviewAPI =
   "file"
     :> Capture "nodeID" FileID
     :> "preview"
+    :> QueryParam "view" ViewMode
     :> Get '[HTML] Blaze.Html
 
 type FileDownloadAPI =

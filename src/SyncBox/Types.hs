@@ -7,6 +7,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -15,6 +16,7 @@
 module SyncBox.Types where
 
 import Colog
+import qualified Data.Text as T
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
 import Database.SQLite.Simple
@@ -83,6 +85,22 @@ instance ToField UUID where
 --------------------------------------------------------------------------------
 
 data BrowserAction = Preview | Download
+
+data ViewMode = ListView | GridView
+  deriving (Eq, Show)
+
+viewModeText :: ViewMode -> Text
+viewModeText ListView = "list"
+viewModeText GridView = "grid"
+
+instance FromHttpApiData ViewMode where
+  parseQueryParam value = case T.toLower value of
+    "list" -> Right ListView
+    "grid" -> Right GridView
+    _ -> Left "Invalid view mode"
+
+instance ToHttpApiData ViewMode where
+  toQueryParam = viewModeText
 
 data Env m = Env
   { rootDir :: FilePath,

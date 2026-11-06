@@ -100,10 +100,10 @@ maybe404orCont :: (a -> AppM Html) -> Maybe a -> AppM Html
 maybe404orCont _ Nothing = throwIO err404
 maybe404orCont cont (Just v) = cont v
 
-handleFilePreview :: FileID -> AppM Html
-handleFilePreview fh = do
+handleFilePreview :: FileID -> Maybe ViewMode -> AppM Html
+handleFilePreview fh mView = do
   mFile <- selectFile fh
-  maybe404orCont (pure . renderPage . renderFile) mFile
+  maybe404orCont (pure . renderPage . renderFile (resolveView mView)) mFile
 
 handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
 handleFileDownload path =
@@ -118,14 +118,15 @@ handleFileDownload path =
 makeAttachment :: Text -> Text
 makeAttachment fileName = "attachment; filename=\"" <> fileName <> "\""
 
-handleFolderPreview :: DirectoryID -> AppM Html
-handleFolderPreview uuid =
+handleFolderPreview :: DirectoryID -> Maybe ViewMode -> AppM Html
+handleFolderPreview uuid mView =
   selectDirectory uuid >>= maybe404orCont getDirAndRender
   where
+    viewMode = resolveView mView
     getDirAndRender dir = do
       subdDirs <- selectSubDirectories uuid
       files <- selectFilesByDirectory uuid
-      pure $ renderPage $ renderDirectory dir subdDirs files
+      pure $ renderPage $ renderDirectory viewMode dir subdDirs files
 
 handleFolderDownload ::
   DirectoryID -> AppM (WithContent (ConduitT Void ByteString IO ()))
@@ -138,8 +139,12 @@ handleFolderDownload uuid =
       pure $ addHeader (makeAttachment fileName) $ do
         addHeader mimeType $ compressDirectory dir
 
-handleIndex :: AppM Html
-handleIndex = selectRootDirectory >>= handleFolderPreview . directoryID
+handleIndex :: Maybe ViewMode -> AppM Html
+handleIndex mView =
+  selectRootDirectory >>= \root -> handleFolderPreview (directoryID root) mView
+
+resolveView :: Maybe ViewMode -> ViewMode
+resolveView = fromMaybe ListView
 
 ------------------------------------------------------------------------------------------
 
