@@ -36,23 +36,27 @@ import Prelude qualified
 
 ------------------------------------------------------------------------------------------
 
+dataView :: AttributeValue -> Attribute
+dataView = H.customAttribute "data-view"
+
 renderFile :: ViewMode -> File -> Html
-renderFile view f@File {..} = main ! class_ "page" $ do
-  section ! class_ "hero" $ do
-    a ! class_ "back" ! href hrefBack $ "← Back to folder"
-    h1 ! class_ "title" $ text $ pack fileName
-    p ! class_ "meta" $ do
-      span $ text $ renderFileSize fileSize
-      span ! class_ "dot" $ "·"
-      span $ text $ fileKind f
-    p ! class_ "path" $ text $ pack filePath
-  section ! class_ "preview" $ case previewBody f of
-    Just previewHtml -> previewHtml
-    Nothing -> p ! class_ "empty" $ "No preview available for this file."
-  section ! class_ "actions" $ do
-    a ! class_ "button" ! href (fileDownloadURI f) $ "Download"
-  where
-    hrefBack = viewHref view $ previewFolderLink fileDirectoryID
+renderFile view f@File {..} =
+  main ! class_ "page" ! dataView (toValue $ viewModeText view) $ do
+    section ! class_ "hero" $ do
+      div ! class_ "hero-nav" $ do
+        let hrefBack = viewHref view $ previewFolderLink fileDirectoryID
+        a ! class_ "back" ! href hrefBack $ "← Back"
+      h1 ! class_ "title" $ text $ pack fileName
+      p ! class_ "meta" $ do
+        span $ text $ renderFileSize fileSize
+        span ! class_ "dot" $ "·"
+        span $ text $ fileKind f
+      p ! class_ "path" $ text $ pack filePath
+    section ! class_ "preview" $ case previewBody f of
+      Just previewHtml -> previewHtml
+      Nothing -> p ! class_ "empty" $ "No preview available for this file."
+    section ! class_ "actions" $ do
+      a ! class_ "button" ! href (fileDownloadURI f) $ "Download"
 
 previewBody :: File -> Maybe Html
 previewBody f = case drop 1 $ toLower <$> takeExtension (filePath f) of
@@ -93,27 +97,26 @@ renderFileSize x
 
 renderDirectory ::
   ViewMode -> Directory -> [(Directory, Integer)] -> [File] -> Html
-renderDirectory view Directory {..} subDirs files = main
-  ! class_ "page"
-  ! H.customAttribute "data-view" (toValue $ viewModeText view)
-  $ do
+renderDirectory view Directory {..} subDirs files =
+  main ! class_ "page" ! dataView (toValue $ viewModeText view) $ do
     section ! class_ "hero" $ do
-      case directoryParentID of
+      div ! class_ "hero-nav" $ case directoryParentID of
         Just parentID -> do
           let hrefV = viewHref view $ previewFolderLink parentID
           a ! class_ "back" ! href hrefV $ "← Back"
-        Nothing -> mempty
+        Nothing -> span ! class_ "back back-placeholder" $ mempty
       h1 ! class_ "title" $ text $ pack directoryName
+      p ! class_ "meta" $ text countText
       p ! class_ "path" $ text $ pack directoryPath
 
     section ! class_ "toolbar" $ do
-      p ! class_ "count" $ text $ do
-        let total = Prelude.length subDirs + Prelude.length files
-        pack (show total) <> if total == 1 then " item" else " items"
+      p ! class_ "count" $ text countText
       div ! class_ "toolbar-actions" $ do
         viewSwitcher view directoryID
-        let hrefV = linkHref $ downloadFolderLink directoryID
-        a ! class_ "button secondary" ! href hrefV $ "Download folder"
+        a
+          ! class_ "button secondary"
+          ! href (linkHref $ downloadFolderLink directoryID)
+          $ "Download folder"
 
     if Prelude.null subDirs && Prelude.null files
       then section ! class_ "panel empty-state" $ p ! class_ "empty" $ "Empty"
@@ -125,6 +128,10 @@ renderDirectory view Directory {..} subDirs files = main
         ul ! class_ "listing-body" $ do
           for_ subDirs $ uncurry (renderDirectoryLink view)
           for_ files $ renderFileLink view
+  where
+    totalItems = Prelude.length subDirs + Prelude.length files
+    countText =
+      pack (show totalItems) <> if totalItems == 1 then " item" else " items"
 
 ariaLabel :: AttributeValue -> Attribute
 ariaLabel = H.customAttribute "aria-label"

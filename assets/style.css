@@ -121,6 +121,7 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
@@ -134,30 +135,39 @@ a {
   gap: 6px;
 }
 
+.hero-nav {
+  min-height: 20px;
+  margin-bottom: 4px;
+  view-transition-name: hero-nav;
+}
+
 .eyebrow {
   margin: 0 0 2px;
-  font-size: 11px;
+  font-size: 0.75rempx;
   font-weight: 650;
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--muted);
+  view-transition-name: hero-eyebrow;
 }
 
 .title {
   margin: 0;
-  font-size: clamp(26px, 4vw, 34px);
+  font-size: 2rem;
   line-height: 1.15;
   font-weight: 650;
   letter-spacing: -0.035em;
   overflow-wrap: anywhere;
+  view-transition-name: hero-title;
 }
 
 .path {
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: 0.8rem;
   color: var(--faint);
   overflow-wrap: anywhere;
+  view-transition-name: hero-path;
 }
 
 .meta {
@@ -165,8 +175,9 @@ a {
   align-items: center;
   gap: 8px;
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: 0.8rem;
   color: var(--muted);
+  view-transition-name: hero-meta;
 }
 
 .meta .dot {
@@ -176,9 +187,7 @@ a {
 .back {
   display: inline-flex;
   align-items: center;
-  align-self: flex-start;
-  margin-bottom: 10px;
-  font-size: 13px;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--muted);
   transition: color 0.15s ease;
@@ -186,6 +195,11 @@ a {
 
 .back:hover {
   color: var(--text);
+}
+
+.back-placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .panel {
