@@ -22,6 +22,7 @@ import Protolude hiding (div, hash, head, link, (%))
 import Servant (linkURI)
 import Servant.API (Link)
 import SyncBox.API
+import SyncBox.Thumbnail (thumbnailType)
 import SyncBox.Types
 import System.FilePath
 import Text.Blaze.Html.Renderer.Pretty
@@ -176,6 +177,9 @@ filePreviewURI view = fileID >>> previewFileLink >>> viewHref view
 fileDownloadURI :: File -> AttributeValue
 fileDownloadURI = fileID >>> downloadFileLink >>> linkHref
 
+fileThumbnailURI :: File -> AttributeValue
+fileThumbnailURI = fileID >>> fileThumbnail links >>> linkHref
+
 directoryPreviewURI :: ViewMode -> Directory -> AttributeValue
 directoryPreviewURI view = directoryID >>> previewFolderLink >>> viewHref view
 
@@ -200,7 +204,7 @@ renderDirectoryLink view dir = li ! Attr.class_ "item" $ do
 renderFileLink :: ViewMode -> File -> Html
 renderFileLink view file@File {..} = li ! Attr.class_ "item" $ do
   a ! Attr.class_ "item-main" ! Attr.href (filePreviewURI view file) $ do
-    span ! Attr.class_ "badge" $ text $ fileKind file
+    renderFileBadge file
     span ! Attr.class_ "item-name" $ text $ pack fileName
   span ! Attr.class_ "item-size" $ text $ renderFileSize fileSize
   a
@@ -208,6 +212,16 @@ renderFileLink view file@File {..} = li ! Attr.class_ "item" $ do
     ! Attr.href (fileDownloadURI file)
     ! Attr.title "Download file"
     $ "↓"
+
+renderFileBadge :: File -> Html
+renderFileBadge file =
+  case thumbnailType (filePath file) of
+    Just _ ->
+      span ! Attr.class_ "thumb" $
+        img
+          ! Attr.src (fileThumbnailURI file)
+          ! Attr.alt ""
+    Nothing -> span ! Attr.class_ "badge" $ text $ fileKind file
 
 --------------------------------------------------------------------------------
 -- Cover view

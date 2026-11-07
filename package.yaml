@@ -50,6 +50,7 @@ dependencies:
   - sqlite-simple
   - tar
   - text
+  - typed-process
   - uuid
   - wai
   - wai-extra
@@ -69,6 +70,23 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs: test
+    build-tools: sydtest-discover
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - syncbox
+    - sydtest
+    - sydtest-discover
+    - servant
+    - uuid
+    - text
 
 ghc-options:
 - -Wall

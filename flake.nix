@@ -96,6 +96,8 @@
             hpack
             hlint
             yamlfix
+            ffmpeg
+            graphicsmagick
           ];
           shellHook = precommitCheck.shellHook;
         };

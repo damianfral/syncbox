@@ -21,6 +21,7 @@ import Colog.Actions
 import Colog.Core
 import Conduit
 import Control.Lens hiding ((<.>))
+import qualified Data.ByteString as BS
 import Data.Generics.Labels ()
 import Data.Text (pack)
 import Database.SQLite.Simple
@@ -37,6 +38,7 @@ import Servant.Server.Generic (AsServerT, genericServeT)
 import SyncBox.API
 import SyncBox.Database
 import SyncBox.Render
+import SyncBox.Thumbnail
 import SyncBox.Types
 import System.Directory (makeAbsolute)
 import System.Directory.Recursive (getFilesRecursive)
@@ -54,6 +56,7 @@ server =
       folderDownload = handleFolderDownload,
       filePreview = handleFilePreview,
       fileDownload = handleFileDownload,
+      fileThumbnail = handleFileThumbnail,
       indexPage = handleIndex
     }
 
@@ -104,6 +107,22 @@ handleFilePreview :: FileID -> Maybe ViewMode -> AppM Html
 handleFilePreview fh mView = do
   mFile <- selectFile fh
   maybe404orCont (pure . renderPage . renderFile (resolveView mView)) mFile
+
+handleFileThumbnail ::
+  FileID ->
+  AppM (Headers '[Header "Content-Type" Text] ByteString)
+handleFileThumbnail fileID = do
+  selectFile fileID >>= \case
+    Nothing -> throwIO err404
+    Just file -> do
+      thumbnail <- liftIO $ ensureThumbnail file
+      case thumbnail of
+        Left err -> do
+          log W $ "Thumbnail unavailable for " <> pack (filePath file) <> ": " <> err
+          throwIO err404
+        Right path -> do
+          content <- liftIO $ BS.readFile path
+          pure $ addHeader "image/jpeg" content
 
 handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
 handleFileDownload path =
