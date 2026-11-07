@@ -48,9 +48,8 @@ renderFile view f@File {..} = main ! class_ "page" $ do
   section ! class_ "preview" $ case previewBody f of
     Just previewHtml -> previewHtml
     Nothing -> p ! class_ "empty" $ "No preview available for this file."
-  section ! class_ "actions" $
-    a ! class_ "button" ! href (fileDownloadURI f) $
-      "Download"
+  section ! class_ "actions" $ do
+    a ! class_ "button" ! href (fileDownloadURI f) $ "Download"
   where
     hrefBack = viewHref view $ previewFolderLink fileDirectoryID
 
@@ -91,35 +90,35 @@ renderFileSize x
     baseR n = 1024 ** n
     y = fromInteger x
 
-renderDirectory :: ViewMode -> Directory -> [(Directory, Integer)] -> [File] -> Html
+renderDirectory ::
+  ViewMode -> Directory -> [(Directory, Integer)] -> [File] -> Html
 renderDirectory view Directory {..} subDirs files = main
   ! class_ "page"
   ! H.customAttribute "data-view" (toValue $ viewModeText view)
   $ do
     section ! class_ "hero" $ do
       case directoryParentID of
-        Just parentID ->
-          a ! class_ "back" ! href (viewHref view $ previewFolderLink parentID) $
-            "← Back"
+        Just parentID -> do
+          let hrefV = viewHref view $ previewFolderLink parentID
+          a ! class_ "back" ! href hrefV $ "← Back"
         Nothing -> mempty
       p ! class_ "eyebrow" $ "Directory"
       h1 ! class_ "title" $ text $ pack directoryName
       p ! class_ "path" $ text $ pack directoryPath
+
     section ! class_ "toolbar" $ do
-      p ! class_ "count" $
-        text $
-          pack (show $ Prelude.length subDirs + Prelude.length files)
-            <> if Prelude.length subDirs + Prelude.length files == 1
-              then " item"
-              else " items"
+      p ! class_ "count" $ text $ do
+        pack (show $ Prelude.length subDirs + Prelude.length files)
+          <> if Prelude.length subDirs + Prelude.length files == 1
+            then " item"
+            else " items"
       div ! class_ "toolbar-actions" $ do
         viewSwitcher view directoryID
-        a
-          ! class_ "button secondary"
-          ! href (linkHref $ downloadFolderLink directoryID)
-          $ "Download folder"
+        let hrefV = linkHref $ downloadFolderLink directoryID
+        a ! class_ "button secondary" ! href hrefV $ "Download folder"
+
     if Prelude.null subDirs && Prelude.null files
-      then section ! class_ "panel empty-state" $ do p ! class_ "empty" $ "Empty."
+      then section ! class_ "panel empty-state" $ p ! class_ "empty" $ "Empty"
       else section ! class_ "panel listing" $ do
         div ! class_ "listing-header" $ do
           span "Name"
@@ -142,14 +141,13 @@ viewSwitcher view directoryID =
     viewButton view directoryID GridView "Grid"
 
 viewButton :: ViewMode -> DirectoryID -> ViewMode -> Text -> Html
-viewButton current directoryID targetMode labelText =
+viewButton current directoryID targetMode labelText = do
+  let isActiveClass = if current == targetMode then " is-active" else ""
   a
     ! class_ (toValue @Text $ "view-button" <> isActiveClass)
     ! href (viewHref targetMode $ previewFolderLink directoryID)
     ! ariaCurrent (if current == targetMode then "page" else "false")
     $ text labelText
-  where
-    isActiveClass = if current == targetMode then " is-active" else ""
 
 --------------------------------------------------------------------------------
 
@@ -166,7 +164,7 @@ downloadFileLink :: FileID -> Link
 downloadFileLink = fileDownload links
 
 linkHref :: Link -> AttributeValue
-linkHref l = toValue ("/" <> show (linkURI l) :: Text)
+linkHref l = toValue @Text $ "/" <> show (linkURI l)
 
 viewHref :: ViewMode -> Link -> AttributeValue
 viewHref view l =
@@ -221,29 +219,21 @@ renderFileLink view file@File {..} = li ! class_ "item" $ do
 
 renderFileBadge :: File -> Html
 renderFileBadge file = case thumbnailType (filePath file) of
-  Just _ ->
-    span ! class_ "thumb" $
-      img ! src (fileThumbnailURI file) ! alt ""
+  Just _ -> span ! class_ "thumb" $ img ! src (fileThumbnailURI file) ! alt ""
   Nothing -> span ! class_ "badge" $ text $ fileKind file
 
 --------------------------------------------------------------------------------
 -- Cover view
 
 renderVideo :: File -> Html
-renderVideo file =
-  video
-    ! class_ "media"
-    ! src (fileRawURI file)
-    ! controls "true"
-    ! preload "metadata"
-    $ mempty
+renderVideo file = do
+  let srcV = fileRawURI file
+  video ! class_ "media" ! src srcV ! controls "true" ! preload "metadata" $ ""
 
 renderImage :: File -> Html
-renderImage file =
-  img
-    ! class_ "media"
-    ! src (fileRawURI file)
-    ! alt (toValue $ pack $ fileName file)
+renderImage file = do
+  let altV = toValue $ pack $ fileName file
+  img ! class_ "media" ! src (fileRawURI file) ! alt altV
 
 renderTxt :: File -> Html
 renderTxt _ = pre ! class_ "text-preview" $ code $ text ""
@@ -265,11 +255,10 @@ renderPage page =
       H.title "Syncbox"
       H.style $ toHtml styleCss
     body $ do
-      header ! class_ "site-header" $
-        a ! class_ "brand" ! href "/" $ do
-          span ! class_ "brand-mark" $ mempty
-          span "syncbox"
+      header ! class_ "site-header" $ a ! class_ "brand" ! href "/" $ do
+        span ! class_ "brand-mark" $ mempty
+        span "syncbox"
       page
 
-styleCss :: Prelude.String
+styleCss :: Text
 styleCss = $(makeRelativeToProject "assets/style.css" >>= embedStringFile)
