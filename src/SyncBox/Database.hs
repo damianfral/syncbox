@@ -23,7 +23,7 @@ import Database.SQLite.Simple
 import Database.SQLite.Simple.QQ (sql)
 import Protolude hiding (div, head, link, log)
 import Servant (err500)
-import SyncBox.Types
+import SyncBox.Core
 import System.Directory (getFileSize, makeAbsolute)
 import System.FilePath
 import Prelude qualified

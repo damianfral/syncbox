@@ -15,7 +15,7 @@ import Conduit
 import Protolude
 import Servant
 import Servant.HTML.Blaze
-import SyncBox.Types
+import SyncBox.Core
 import Text.Blaze.Html qualified as Blaze
 
 type StreamIOBytes = ConduitT Void ByteString IO ()

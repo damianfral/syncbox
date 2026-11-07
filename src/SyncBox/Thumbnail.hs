@@ -9,7 +9,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Data.Text (pack)
 import Data.Text qualified as T
 import Protolude
-import SyncBox.Types
+import SyncBox.Core
 import System.Directory
 import System.FilePath (takeExtension, (</>))
 import System.Process.Typed

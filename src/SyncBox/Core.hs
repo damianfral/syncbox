@@ -15,7 +15,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module SyncBox.Types where
+module SyncBox.Core where
 
 import Colog
 import Data.Text qualified as T

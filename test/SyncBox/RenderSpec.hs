@@ -6,8 +6,8 @@ module SyncBox.RenderSpec (spec) where
 
 import Data.UUID qualified as UUID
 import Protolude
+import SyncBox.Core
 import SyncBox.Render
-import SyncBox.Types
 import Test.Syd
 
 spec :: Spec

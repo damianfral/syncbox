@@ -24,8 +24,8 @@ import Protolude hiding (div, hash, head, link, (%))
 import Servant (linkURI)
 import Servant.API (Link)
 import SyncBox.API
+import SyncBox.Core
 import SyncBox.Thumbnail (thumbnailType)
-import SyncBox.Types
 import System.FilePath
 import Text.Blaze.Html.Renderer.Pretty
 import Text.Blaze.Html5 hiding (style)
