@@ -26,7 +26,10 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Generics.Labels ()
 import Data.Text (pack)
+import Data.Text qualified as T
 import Database.SQLite.Simple
+import Network.HTTP.Types.Header (hContentLength, hContentRange, hContentType)
+import Network.HTTP.Types.Status (status200, status206, status416)
 import Network.Mime (defaultMimeLookup)
 import Network.Wai
 import Network.Wai.Handler.Warp
@@ -109,15 +112,15 @@ maybe404orCont cont (Just v) = cont v
 handleFilePreview :: FileID -> Maybe ViewMode -> AppM Html
 handleFilePreview fh mView = do
   mFile <- selectFile fh
-  let view = resolveView mView
-  maybe404orCont (renderFilePage view) mFile
+  let viewV = resolveView mView
+  maybe404orCont (renderFilePage viewV) mFile
   where
-    renderFilePage view file = do
+    renderFilePage viewV file = do
       mDir <- selectDirectory (fileDirectoryID file)
       crumbDirs <- case mDir of
         Nothing -> pure []
         Just dir -> selectDirectoryAncestors dir
-      pure $ renderPage $ renderFile view crumbDirs file
+      pure $ renderPage $ renderFile viewV crumbDirs file
 
 handleFileThumbnail ::
   FileID ->
@@ -136,24 +139,73 @@ handleFileThumbnail fileID = do
           pure $ addHeader "image/jpeg" content
 
 handleFileRaw ::
-  FileID -> AppM (Headers '[Header "Content-Type" Text] (ConduitT Void ByteString IO ()))
-handleFileRaw =
-  selectFile >=> \case
+  FileID ->
+  Maybe Text ->
+  Request ->
+  (Response -> IO ResponseReceived) ->
+  AppM ResponseReceived
+handleFileRaw fID mRange _req respondWai =
+  selectFile fID >>= \case
     Nothing -> throwError err404
-    Just File {..} -> do
-      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
-      contents <- liftIO $ LBS.readFile filePath
-      pure $ addHeader mimeType $ sourceLazy contents
+    Just File {..} -> liftIO $ do
+      let mimeType = defaultMimeLookup $ toS filePath
+          total = fileSize
+          commonHeaders = [("Accept-Ranges", "bytes"), (hContentType, mimeType)]
+      case parseByteRange mRange total of
+        Nothing ->
+          let headers = (hContentLength, encodeUtf8 $ show total) : commonHeaders
+           in respondWai $ responseFile status200 headers filePath Nothing
+        Just (Left ()) ->
+          let contentRange = "bytes */" <> show total
+              headers = [("Accept-Ranges", "bytes"), (hContentRange, contentRange)]
+           in respondWai $ responseLBS status416 headers LBS.empty
+        Just (Right (start, end)) -> do
+          let len = end - start + 1
+              range = mconcat ["bytes ", show start, "-", show end, "/", show total]
+              headers =
+                (hContentLength, encodeUtf8 $ show len)
+                  : (hContentRange, range)
+                  : commonHeaders
+              filePart = FilePart start len total
+          respondWai $ responseFile status206 headers filePath (Just filePart)
+
+parseByteRange :: Maybe Text -> Integer -> Maybe (Either () (Integer, Integer))
+parseByteRange Nothing _ = Nothing
+parseByteRange (Just value) total = do
+  range <- T.stripPrefix "bytes=" $ T.strip value
+  if T.any (== ',') range
+    then Nothing
+    else case T.breakOn "-" (T.takeWhile (/= ',') range) of
+      ("", suffixText) -> do
+        suffix <- readIntegerText $ T.drop 1 suffixText
+        if total <= 0 || suffix <= 0
+          then Just (Left ())
+          else
+            let len = min total suffix
+             in Just (Right (total - len, total - 1))
+      (startText, endPart) -> do
+        start <- readIntegerText startText
+        let endText = T.drop 1 endPart
+        end <-
+          if T.null endText then Just (total - 1) else readIntegerText endText
+        if total <= 0 || start > end || start >= total
+          then Just (Left ())
+          else Just (Right (start, min end (total - 1)))
+
+readIntegerText :: Text -> Maybe Integer
+readIntegerText t = case reads $ T.unpack t of
+  [(n, "")] -> Just n
+  _ -> Nothing
 
 handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
 handleFileDownload path =
   selectFile path >>= \case
     Nothing -> throwError err404
     Just file@(File {..}) -> do
-      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
+      let mimeType = defaultMimeLookup $ toS filePath
       let downloadName = pack $ "syncbox-" <> fileName <> ".tgz"
       pure $ addHeader (makeAttachment downloadName) $ do
-        addHeader mimeType $ compressFile file
+        addHeader (decodeUtf8With lenientDecode mimeType) $ compressFile file
 
 makeAttachment :: Text -> Text
 makeAttachment fileName = "attachment; filename=\"" <> fileName <> "\""

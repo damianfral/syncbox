@@ -67,7 +67,8 @@ type FileRawAPI =
   "file"
     :> Capture "nodeID" FileID
     :> "raw"
-    :> StreamGet NoFraming OctetStream (Headers '[Header "Content-Type" Text] StreamIOBytes)
+    :> Header "Range" Text
+    :> RawM
 
 data SyncBoxRoutes context = SyncBoxRoutes
   { indexPage :: context :- IndexAPI,
