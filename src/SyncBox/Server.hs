@@ -109,7 +109,15 @@ maybe404orCont cont (Just v) = cont v
 handleFilePreview :: FileID -> Maybe ViewMode -> AppM Html
 handleFilePreview fh mView = do
   mFile <- selectFile fh
-  maybe404orCont (pure . renderPage . renderFile (resolveView mView)) mFile
+  let view = resolveView mView
+  maybe404orCont (renderFilePage view) mFile
+  where
+    renderFilePage view file = do
+      mDir <- selectDirectory (fileDirectoryID file)
+      crumbDirs <- case mDir of
+        Nothing -> pure []
+        Just dir -> selectDirectoryAncestors dir
+      pure $ renderPage $ renderFile view crumbDirs file
 
 handleFileThumbnail ::
   FileID ->
@@ -156,12 +164,13 @@ handleFolderPreview uuid mView =
   where
     viewMode = resolveView mView
     getDirAndRender dir = do
+      crumbDirs <- selectDirectoryAncestors dir
       subdDirs <- selectSubDirectories uuid
       subdDirsWithSize <- for subdDirs $ \subDir -> do
         totalSize <- selectDirectorySize (directoryID subDir)
         pure (subDir, totalSize)
       files <- selectFilesByDirectory uuid
-      pure $ renderPage $ renderDirectory viewMode dir subdDirsWithSize files
+      pure $ renderPage $ renderDirectory viewMode crumbDirs dir subdDirsWithSize files
 
 handleFolderDownload ::
   DirectoryID -> AppM (WithContent (ConduitT Void ByteString IO ()))

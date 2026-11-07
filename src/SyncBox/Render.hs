@@ -39,24 +39,44 @@ import Prelude qualified
 dataView :: AttributeValue -> Attribute
 dataView = H.customAttribute "data-view"
 
-renderFile :: ViewMode -> File -> Html
-renderFile view f@File {..} =
+renderFile :: ViewMode -> [Directory] -> File -> Html
+renderFile view crumbDirs f@File {..} =
   main ! class_ "page" ! dataView (toValue $ viewModeText view) $ do
     section ! class_ "hero" $ do
-      div ! class_ "hero-nav" $ do
-        let hrefBack = viewHref view $ previewFolderLink fileDirectoryID
-        a ! class_ "back" ! href hrefBack $ "← Back"
-      h1 ! class_ "title" $ text $ pack fileName
+      nav ! class_ "breadcrumb" ! ariaLabel "Breadcrumb" $
+        renderBreadcrumb view crumbDirs (Just $ pack fileName)
       p ! class_ "meta" $ do
         span $ text $ renderFileSize fileSize
         span ! class_ "dot" $ "·"
         span $ text $ fileKind f
-      p ! class_ "path" $ text $ pack filePath
     section ! class_ "preview" $ case previewBody f of
       Just previewHtml -> previewHtml
       Nothing -> p ! class_ "empty" $ "No preview available for this file."
     section ! class_ "actions" $ do
       a ! class_ "button" ! href (fileDownloadURI f) $ "Download"
+
+renderBreadcrumb :: ViewMode -> [Directory] -> Maybe Text -> Html
+renderBreadcrumb view dirs current = sequence_ $ intersperse sep $ do
+  (uncurry renderDir <$> dirItems)
+    <> maybe [] (\c -> [span ! class_ "breadcrumb-current" $ text c]) current
+  where
+    sep = span ! class_ "breadcrumb-sep" $ " / "
+    renderDir isLast dir = do
+      let labelV = directoryCrumbLabel dir
+          hrefDir = directoryPreviewURI view dir
+      if isLast && isNothing current
+        then span ! class_ "breadcrumb-current" $ text labelV
+        else a ! class_ "breadcrumb-link" ! href hrefDir $ text labelV
+    dirItems = case dirs of
+      [] -> []
+      _ ->
+        let n = Prelude.length dirs
+         in zipWith (\j d -> (j == n, d)) [1 ..] dirs
+
+directoryCrumbLabel :: Directory -> Text
+directoryCrumbLabel Directory {..} = case directoryParentID of
+  Nothing -> "Home"
+  Just _ -> pack directoryName
 
 previewBody :: File -> Maybe Html
 previewBody f = case drop 1 $ toLower <$> takeExtension (filePath f) of
@@ -96,27 +116,19 @@ renderFileSize x
     y = fromInteger x
 
 renderDirectory ::
-  ViewMode -> Directory -> [(Directory, Integer)] -> [File] -> Html
-renderDirectory view Directory {..} subDirs files =
+  ViewMode -> [Directory] -> Directory -> [(Directory, Integer)] -> [File] -> Html
+renderDirectory view crumbDirs Directory {..} subDirs files =
   main ! class_ "page" ! dataView (toValue $ viewModeText view) $ do
     section ! class_ "hero" $ do
-      div ! class_ "hero-nav" $ case directoryParentID of
-        Just parentID -> do
-          let hrefV = viewHref view $ previewFolderLink parentID
-          a ! class_ "back" ! href hrefV $ "← Back"
-        Nothing -> span ! class_ "back back-placeholder" $ mempty
-      h1 ! class_ "title" $ text $ pack directoryName
-      p ! class_ "meta" $ text countText
-      p ! class_ "path" $ text $ pack directoryPath
+      nav ! class_ "breadcrumb" ! ariaLabel "Breadcrumb" $
+        renderBreadcrumb view crumbDirs Nothing
 
     section ! class_ "toolbar" $ do
       p ! class_ "count" $ text countText
       div ! class_ "toolbar-actions" $ do
         viewSwitcher view directoryID
-        a
-          ! class_ "button secondary"
-          ! href (linkHref $ downloadFolderLink directoryID)
-          $ "Download folder"
+        let hrefV = linkHref $ downloadFolderLink directoryID
+        a ! class_ "button secondary" ! href hrefV $ "Download folder"
 
     if Prelude.null subDirs && Prelude.null files
       then section ! class_ "panel empty-state" $ p ! class_ "empty" $ "Empty"

@@ -87,6 +87,15 @@ selectDirectory uuid = do
   where
     q = "select * from directories where directory_id = ? ORDER BY name ASC;"
 
+selectDirectoryAncestors :: Directory -> AppM [Directory]
+selectDirectoryAncestors dir = go (directoryParentID dir) [dir]
+  where
+    go Nothing acc = pure acc
+    go (Just pid) acc =
+      selectDirectory pid >>= \case
+        Nothing -> pure acc
+        Just parent -> go (directoryParentID parent) (parent : acc)
+
 selectDirectoryByFullPath :: FilePath -> AppM (Maybe Directory)
 selectDirectoryByFullPath filePath = do
   Env {..} <- ask
