@@ -235,9 +235,14 @@ renderFileLink view file@File {..} = li ! class_ "item" $ do
     $ "↓"
 
 renderFileBadge :: File -> Html
-renderFileBadge file = case thumbnailType (filePath file) of
-  Just _ -> span ! class_ "thumb" $ img ! src (fileThumbnailURI file) ! alt ""
-  Nothing -> span ! class_ "badge" $ text $ fileKind file
+renderFileBadge file
+  | isSvg file = span ! class_ "thumb" $ img ! src (fileRawURI file) ! alt ""
+  | otherwise = case thumbnailType (filePath file) of
+      Just _ -> span ! class_ "thumb" $ img ! src (fileThumbnailURI file) ! alt ""
+      Nothing -> span ! class_ "badge" $ text $ fileKind file
+  where
+    isSvg File {..} =
+      drop 1 (toLower <$> takeExtension filePath) == ("svg" :: [Char])
 
 --------------------------------------------------------------------------------
 -- Cover view

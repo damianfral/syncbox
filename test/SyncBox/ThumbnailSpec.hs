@@ -14,7 +14,10 @@ spec = describe "thumbnailType" $ do
     thumbnailType "image.png" `shouldBe` Just ImageThumbnail
     thumbnailType "icon.gif" `shouldBe` Just ImageThumbnail
     thumbnailType "picture.webp" `shouldBe` Just ImageThumbnail
-    thumbnailType "vector.svg" `shouldBe` Just ImageThumbnail
+
+  it "does not generate thumbnails for svg files" $ do
+    thumbnailType "vector.svg" `shouldBe` Nothing
+    thumbnailType "VECTOR.SVG" `shouldBe` Nothing
 
   it "detects video formats" $ do
     thumbnailType "clip.mp4" `shouldBe` Just VideoThumbnail

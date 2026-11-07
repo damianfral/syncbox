@@ -25,7 +25,6 @@ thumbnailType path = case drop 1 $ toLower <$> takeExtension path of
   "png" -> Just ImageThumbnail
   "gif" -> Just ImageThumbnail
   "webp" -> Just ImageThumbnail
-  "svg" -> Just ImageThumbnail
   "mov" -> Just VideoThumbnail
   "mkv" -> Just VideoThumbnail
   "mp4" -> Just VideoThumbnail
