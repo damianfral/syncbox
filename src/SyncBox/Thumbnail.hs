@@ -48,28 +48,9 @@ ensureThumbnail file = case thumbnailType (filePath file) of
 generate :: ThumbnailType -> FilePath -> FilePath -> IO (Either Text FilePath)
 generate ImageThumbnail input output = do
   result <-
-    firstCommand
-      [ ( "magick",
-          [ input,
-            "-auto-orient",
-            "-thumbnail",
-            "256x>",
-            "-quality",
-            "82",
-            output
-          ]
-        ),
-        ( "convert",
-          [ "-auto-orient",
-            input,
-            "-thumbnail",
-            "512x>",
-            "-quality",
-            "82",
-            output
-          ]
-        )
-      ]
+    runCommand
+      "magick"
+      [input, "-auto-orient", "-thumbnail", "256x>", "-quality", "82", output]
   case result of
     Right () -> pure $ Right output
     Left err -> pure $ Left err
@@ -102,21 +83,6 @@ ffmpegArgs position input output =
     "3",
     output
   ]
-
-firstCommand :: [(FilePath, [String])] -> IO (Either Text ())
-firstCommand [] = pure $ Left "no thumbnail command available"
-firstCommand ((command, arguments) : rest) = do
-  result <- runCommand command arguments
-  case result of
-    Right () -> pure $ Right ()
-    Left err ->
-      if null rest
-        then pure $ Left $ pack command <> ": " <> err
-        else do
-          next <- firstCommand rest
-          case next of
-            Right () -> pure $ Right ()
-            Left err2 -> pure $ Left $ pack command <> ": " <> err <> "; " <> err2
 
 runCommand :: FilePath -> [String] -> IO (Either Text ())
 runCommand command arguments = do
