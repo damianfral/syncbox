@@ -45,15 +45,15 @@ renderFile view crumbDirs f@File {..} =
     section ! class_ "hero" $ do
       nav ! class_ "breadcrumb" ! ariaLabel "Breadcrumb" $
         renderBreadcrumb view crumbDirs (Just $ pack fileName)
-      p ! class_ "meta" $ do
-        span $ text $ renderFileSize fileSize
-        span ! class_ "dot" $ "·"
-        span $ text $ fileKind f
+      div ! class_ "toolbar" $ do
+        p ! class_ "meta" $ do
+          span $ text $ renderFileSize fileSize
+          span ! class_ "dot" $ "·"
+          span $ text $ fileKind f
+        a ! class_ "button secondary" ! href (fileDownloadURI f) $ "Download file"
     section ! class_ "preview" $ case previewBody f of
       Just previewHtml -> previewHtml
       Nothing -> p ! class_ "empty" $ "No preview available for this file."
-    section ! class_ "actions" $ do
-      a ! class_ "button" ! href (fileDownloadURI f) $ "Download"
 
 renderBreadcrumb :: ViewMode -> [Directory] -> Maybe Text -> Html
 renderBreadcrumb view dirs current = sequence_ $ intersperse sep $ do
@@ -122,13 +122,12 @@ renderDirectory view crumbDirs Directory {..} subDirs files =
     section ! class_ "hero" $ do
       nav ! class_ "breadcrumb" ! ariaLabel "Breadcrumb" $
         renderBreadcrumb view crumbDirs Nothing
-
-    section ! class_ "toolbar" $ do
-      p ! class_ "count" $ text countText
-      div ! class_ "toolbar-actions" $ do
-        viewSwitcher view directoryID
-        let hrefV = linkHref $ downloadFolderLink directoryID
-        a ! class_ "button secondary" ! href hrefV $ "Download folder"
+      div ! class_ "toolbar" $ do
+        p ! class_ "count" $ text countText
+        div ! class_ "toolbar-actions" $ do
+          viewSwitcher view directoryID
+          let hrefV = linkHref $ downloadFolderLink directoryID
+          a ! class_ "button secondary" ! href hrefV $ "Download folder"
 
     if Prelude.null subDirs && Prelude.null files
       then section ! class_ "panel empty-state" $ p ! class_ "empty" $ "Empty"

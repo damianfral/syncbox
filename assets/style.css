@@ -16,6 +16,8 @@
   color-scheme: light dark;
 }
 
+@import url("https://fonts.googleapis.com/css2?family=Anonymous+Pro:wght@400;700&display=swap");
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111113;
@@ -49,9 +51,9 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
-  font-size: 15px;
+  font-family: "Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -72,18 +74,20 @@ a {
 }
 
 .site-header {
-  max-width: 880px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 28px 24px 0;
+  padding: 24px 20px 0;
   view-transition-name: site-header;
+  display: flex;
+  align-items: center;
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  font-size: 15px;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -105,19 +109,30 @@ a {
 }
 
 .page {
-  max-width: 880px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 44px 24px 72px;
+  padding: 48px 24px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
   view-transition-name: page;
+}
+
+::view-transition-group(root),
+::view-transition-group(site-header),
+::view-transition-group(page),
+::view-transition-group(hero-nav),
+::view-transition-group(hero-eyebrow),
+::view-transition-group(hero-title),
+::view-transition-group(hero-meta) {
+  animation-duration: 120ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 ::view-transition-old(page),
 ::view-transition-new(page) {
-  animation-duration: 180ms;
-  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  animation-duration: 120ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -147,9 +162,9 @@ a {
   align-items: baseline;
   gap: 0;
   margin: 0;
-  font-size: clamp(22px, 3.5vw, 30px);
+  font-size: 20px;
   line-height: 1.2;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.03em;
   overflow-wrap: anywhere;
   view-transition-name: hero-title;
@@ -175,21 +190,11 @@ a {
   color: var(--text);
 }
 
-.eyebrow {
-  margin: 0 0 2px;
-  font-size: 0.75rempx;
-  font-weight: 650;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--muted);
-  view-transition-name: hero-eyebrow;
-}
-
 .title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 16px;
   line-height: 1.15;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.035em;
   overflow-wrap: anywhere;
   view-transition-name: hero-title;
@@ -199,23 +204,14 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 4px 0 0;
-  font-size: 0.8rem;
+  margin: 0;
+  font-size: 12px;
   color: var(--muted);
   view-transition-name: hero-meta;
 }
 
 .meta .dot {
   color: var(--faint);
-}
-
-.back {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--muted);
-  transition: color 0.15s ease;
 }
 
 .back:hover {
@@ -242,8 +238,8 @@ a {
   align-items: center;
   padding: 12px 18px;
   text-align: left;
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -290,11 +286,12 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 .item-size {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -310,7 +307,7 @@ a {
   border-radius: 9px;
   background: var(--badge);
   color: var(--badge-text);
-  font-size: 9.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -338,7 +335,7 @@ a {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 main[data-view="grid"] .listing {
@@ -363,8 +360,8 @@ main[data-view="grid"] .item {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
   gap: 18px;
   min-height: 150px;
   padding: 16px;
@@ -381,7 +378,6 @@ main[data-view="grid"] .item:hover {
 
 main[data-view="grid"] .item-main {
   flex-direction: column;
-  align-items: flex-start;
   gap: 14px;
   width: 100%;
 }
@@ -450,14 +446,14 @@ main[data-view="grid"] .icon-button {
 
 .count {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -481,8 +477,8 @@ main[data-view="grid"] .icon-button {
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
@@ -507,8 +503,8 @@ main[data-view="grid"] .icon-button {
   border-radius: 10px;
   background: var(--accent);
   color: var(--accent-text);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -547,6 +543,7 @@ main[data-view="grid"] .icon-button {
 .media {
   display: block;
   max-width: 100%;
+  max-height: calc(100dvh - 18rem);
   height: auto;
 }
 
@@ -554,8 +551,9 @@ main[data-view="grid"] .icon-button {
   width: 100%;
   margin: 0;
   padding: 4px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-family: "Anonymous Pro", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 16px;
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -563,7 +561,7 @@ main[data-view="grid"] .icon-button {
 
 .empty {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--muted);
 }
 
