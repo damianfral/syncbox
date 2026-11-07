@@ -1,5 +1,8 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module SyncBox.ThumbnailSpec (spec) where
 
+import Protolude
 import SyncBox.Thumbnail
 import Test.Syd
 

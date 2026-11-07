@@ -89,7 +89,26 @@ tests:
     - text
 
 ghc-options:
-- -Wall
-- -fwarn-tabs
-- -fwarn-incomplete-uni-patterns
-- -fwarn-incomplete-record-updates
+  - -O2
+  - -fshow-warning-groups
+  - -Weverything
+  - -Wno-missing-deriving-strategies
+  - -Wno-missing-export-lists
+  - -Wno-missing-import-lists
+  - -Wno-missing-kind-signatures
+  - -Wno-missing-local-signatures
+  - -Wno-missing-role-annotations
+  - -Wno-missing-safe-haskell-mode
+  - -Wno-monomorphism-restriction
+  - -Wno-safe
+  - -Wno-unsafe
+  - -fwrite-ide-info
+  - -funbox-strict-fields
+  - -flate-dmd-anal
+  - -fno-omit-interface-pragmas
+  - -fregs-graph
+  - -fspec-constr-recursive=32
+  - -fmax-worker-args=32
+  - -fexpose-all-unfoldings
+  - -fspecialise-aggressively
+  - -Wno-unused-packages # sydtest-discover gets marked as unused

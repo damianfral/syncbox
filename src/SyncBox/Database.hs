@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -25,7 +26,7 @@ import Servant (err500)
 import SyncBox.Types
 import System.Directory (getFileSize, makeAbsolute)
 import System.FilePath
-import qualified Prelude
+import Prelude qualified
 
 --------------------------------------------------------------------------------
 

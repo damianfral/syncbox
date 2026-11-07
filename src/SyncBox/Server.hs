@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -15,14 +16,14 @@ module SyncBox.Server where
 
 import Codec.Archive.Tar (write)
 import Codec.Archive.Tar.Entry (packFileEntry, toTarPath)
-import qualified Codec.Compression.GZip as GZip
+import Codec.Compression.GZip qualified as GZip
 import Colog (log)
 import Colog.Actions
 import Colog.Core
 import Conduit
 import Control.Lens hiding ((<.>))
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as LBS
 import Data.Generics.Labels ()
 import Data.Text (pack)
 import Database.SQLite.Simple
@@ -46,7 +47,7 @@ import System.Directory.Recursive (getFilesRecursive)
 import System.FSNotify as FS
 import System.FilePath (makeRelative, takeFileName)
 import Text.Blaze.Html (Html)
-import qualified Prelude
+import Prelude qualified
 
 --------------------------------------------------------------------------------
 

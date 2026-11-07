@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
@@ -15,7 +16,7 @@ import Protolude
 import Servant
 import Servant.HTML.Blaze
 import SyncBox.Types
-import qualified Text.Blaze.Html as Blaze
+import Text.Blaze.Html qualified as Blaze
 
 type StreamIOBytes = ConduitT Void ByteString IO ()
 

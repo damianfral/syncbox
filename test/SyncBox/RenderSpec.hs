@@ -1,8 +1,11 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module SyncBox.RenderSpec (spec) where
 
-import qualified Data.UUID as UUID
+import Data.UUID qualified as UUID
+import Protolude
 import SyncBox.Render
 import SyncBox.Types
 import Test.Syd
@@ -10,11 +13,9 @@ import Test.Syd
 spec :: Spec
 spec = do
   describe "renderFileSize" $ do
-    it "formats bytes" $
-      renderFileSize 512 `shouldBe` "512 B"
+    it "formats bytes" $ renderFileSize 512 `shouldBe` "512 B"
 
-    it "formats kilobytes" $
-      renderFileSize 2048 `shouldBe` "2 KB"
+    it "formats kilobytes" $ renderFileSize 2048 `shouldBe` "2 KB"
 
     it "formats megabytes" $
       renderFileSize (5 * 1024 * 1024) `shouldBe` "5.0 MB"

@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -11,12 +12,12 @@
 module SyncBox.Render where
 
 import Control.Arrow ((>>>))
-import qualified Data.ByteString.Lazy as BS
+import Data.ByteString.Lazy qualified as BS
 import Data.FileEmbed (embedStringFile, makeRelativeToProject)
 import Data.Text (pack)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Formatting ((%))
-import qualified Formatting as F
+import Formatting qualified as F
 import Network.HTTP.Types.Status
 import Network.Wai
 import Protolude hiding (div, hash, head, link, (%))
@@ -28,10 +29,10 @@ import SyncBox.Types
 import System.FilePath
 import Text.Blaze.Html.Renderer.Pretty
 import Text.Blaze.Html5 hiding (style)
-import qualified Text.Blaze.Html5 as H
+import Text.Blaze.Html5 qualified as H
 import Text.Blaze.Html5.Attributes hiding (dir, span)
-import qualified Text.Blaze.Html5.Attributes as Attr
-import qualified Prelude
+import Text.Blaze.Html5.Attributes qualified as Attr
+import Prelude qualified
 
 ------------------------------------------------------------------------------------------
 
@@ -102,16 +103,13 @@ renderDirectory view Directory {..} subDirs files = main
           let hrefV = viewHref view $ previewFolderLink parentID
           a ! class_ "back" ! href hrefV $ "← Back"
         Nothing -> mempty
-      p ! class_ "eyebrow" $ "Directory"
       h1 ! class_ "title" $ text $ pack directoryName
       p ! class_ "path" $ text $ pack directoryPath
 
     section ! class_ "toolbar" $ do
       p ! class_ "count" $ text $ do
-        pack (show $ Prelude.length subDirs + Prelude.length files)
-          <> if Prelude.length subDirs + Prelude.length files == 1
-            then " item"
-            else " items"
+        let total = Prelude.length subDirs + Prelude.length files
+        pack (show total) <> if total == 1 then " item" else " items"
       div ! class_ "toolbar-actions" $ do
         viewSwitcher view directoryID
         let hrefV = linkHref $ downloadFolderLink directoryID
@@ -247,18 +245,17 @@ htmlToResponse page =
     renderPage page
 
 renderPage :: Html -> Html
-renderPage page =
-  docTypeHtml $ do
-    head $ do
-      meta ! charset "utf-8"
-      meta ! name "viewport" ! content "width=device-width, initial-scale=1"
-      H.title "Syncbox"
-      H.style $ toHtml styleCss
-    body $ do
-      header ! class_ "site-header" $ a ! class_ "brand" ! href "/" $ do
-        span ! class_ "brand-mark" $ mempty
-        span "syncbox"
-      page
+renderPage page = docTypeHtml $ do
+  head $ do
+    meta ! charset "utf-8"
+    meta ! name "viewport" ! content "width=device-width, initial-scale=1"
+    H.title "Syncbox"
+    H.style $ toHtml styleCss
+  body $ do
+    header ! class_ "site-header" $ a ! class_ "brand" ! href "/" $ do
+      span ! class_ "brand-mark" $ mempty
+      span "syncbox"
+    page
 
 styleCss :: Text
 styleCss = $(makeRelativeToProject "assets/style.css" >>= embedStringFile)

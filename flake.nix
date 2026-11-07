@@ -2,9 +2,9 @@
   description = "Syncbox synchronization tool (Haskell)";
 
   inputs = {
-    nixpkgs = {url = "github:NixOS/nixpkgs/release-26.05";};
+    nixpkgs.url = "github:NixOS/nixpkgs/release-26.05";
     nix-filter.url = "github:numtide/nix-filter";
-    flake-utils = {url = "github:numtide/flake-utils";};
+    flake-utils.url = "github:numtide/flake-utils";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
     pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
     weeder-nix.url = "github:NorfairKing/weeder-nix";
@@ -34,13 +34,7 @@
         pkgs = pkgsFor system;
         filteredSrc = pkgs.nix-filter {
           root = ./.;
-          include = [
-            "src/"
-            "test/"
-            "assets/"
-            "package.yaml"
-            "LICENSE"
-          ];
+          include = ["src/" "test/" "assets/" "package.yaml" "LICENSE"];
         };
         precommitCheck = pre-commit-hooks.lib.${system}.run {
           src = ./.;

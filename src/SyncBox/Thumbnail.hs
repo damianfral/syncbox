@@ -1,65 +1,49 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module SyncBox.Thumbnail where
 
-import Control.Exception (IOException, try)
-import qualified Data.ByteString.Lazy as LBS
+import Data.ByteString.Lazy qualified as LBS
 import Data.Text (pack)
-import qualified Data.Text as T
-import Data.Text.Encoding (decodeUtf8With)
-import Data.Text.Encoding.Error (lenientDecode)
+import Data.Text qualified as T
 import Protolude
 import SyncBox.Types
 import System.Directory
-  ( XdgDirectory (XdgCache),
-    createDirectoryIfMissing,
-    doesFileExist,
-    getXdgDirectory,
-    removeFile,
-  )
-import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath (takeExtension, (</>))
 import System.Process.Typed
-  ( byteStringOutput,
-    proc,
-    readProcess,
-    setStderr,
-    setStdout,
-  )
 import Prelude (String)
 
 data ThumbnailType = ImageThumbnail | VideoThumbnail
   deriving (Eq, Show)
 
 thumbnailType :: FilePath -> Maybe ThumbnailType
-thumbnailType path =
-  case drop 1 $ toLower <$> takeExtension path of
-    "jpeg" -> Just ImageThumbnail
-    "jpg" -> Just ImageThumbnail
-    "png" -> Just ImageThumbnail
-    "gif" -> Just ImageThumbnail
-    "webp" -> Just ImageThumbnail
-    "svg" -> Just ImageThumbnail
-    "mov" -> Just VideoThumbnail
-    "mkv" -> Just VideoThumbnail
-    "mp4" -> Just VideoThumbnail
-    "webm" -> Just VideoThumbnail
-    "avi" -> Just VideoThumbnail
-    _ -> Nothing
+thumbnailType path = case drop 1 $ toLower <$> takeExtension path of
+  "jpeg" -> Just ImageThumbnail
+  "jpg" -> Just ImageThumbnail
+  "png" -> Just ImageThumbnail
+  "gif" -> Just ImageThumbnail
+  "webp" -> Just ImageThumbnail
+  "svg" -> Just ImageThumbnail
+  "mov" -> Just VideoThumbnail
+  "mkv" -> Just VideoThumbnail
+  "mp4" -> Just VideoThumbnail
+  "webm" -> Just VideoThumbnail
+  "avi" -> Just VideoThumbnail
+  _ -> Nothing
 
 ensureThumbnail :: File -> IO (Either Text FilePath)
-ensureThumbnail file =
-  case thumbnailType (filePath file) of
-    Nothing -> pure $ Left "file type has no thumbnail"
-    Just kind -> do
-      cache <- getXdgDirectory XdgCache "syncbox/thumbnails"
-      createDirectoryIfMissing True cache
-      let output = cache </> show (unFileID $ fileID file) <> ".jpg"
-      exists <- doesFileExist output
-      if exists
-        then pure $ Right output
-        else generate kind (filePath file) output
+ensureThumbnail file = case thumbnailType (filePath file) of
+  Nothing -> pure $ Left "file type has no thumbnail"
+  Just kind -> do
+    cache <- getXdgDirectory XdgCache "syncbox/thumbnails"
+    createDirectoryIfMissing True cache
+    let output = cache </> show (unFileID $ fileID file) <> ".jpg"
+    exists <- doesFileExist output
+    if exists
+      then pure $ Right output
+      else generate kind (filePath file) output
 
 generate :: ThumbnailType -> FilePath -> FilePath -> IO (Either Text FilePath)
 generate ImageThumbnail input output = do
@@ -69,7 +53,7 @@ generate ImageThumbnail input output = do
           [ input,
             "-auto-orient",
             "-thumbnail",
-            "512x>",
+            "256x>",
             "-quality",
             "82",
             output
@@ -95,11 +79,11 @@ generate VideoThumbnail input output = do
     Right () -> pure $ Right output
     Left err1 -> do
       removeOutput output
-      generated0 <- runCommand "ffmpeg" (ffmpegArgs "0" input output)
-      case generated0 of
-        Right () -> pure $ Right output
-        Left err0 ->
-          pure $ Left $ "ffmpeg seek=1 failed: " <> err1 <> "; seek=0 failed: " <> err0
+      generated0 <- runCommand "ffmpeg" $ ffmpegArgs "0" input output
+      pure $ case generated0 of
+        Right () -> Right output
+        Left err0 -> do
+          Left $ "ffmpeg seek=1 failed: " <> err1 <> "; seek=0 failed: " <> err0
 
 ffmpegArgs :: [Char] -> FilePath -> FilePath -> [String]
 ffmpegArgs position input output =
@@ -136,32 +120,25 @@ firstCommand ((command, arguments) : rest) = do
 
 runCommand :: FilePath -> [String] -> IO (Either Text ())
 runCommand command arguments = do
-  result <-
-    try
-      ( readProcess $
-          setStdout byteStringOutput $
-            setStderr byteStringOutput $
-              proc command arguments
-      ) ::
-      IO (Either IOException (ExitCode, LBS.ByteString, LBS.ByteString))
+  result <- try @IOException $ do
+    readProcess $
+      setStdout byteStringOutput $
+        setStderr byteStringOutput $
+          proc command arguments
+
   pure $ case result of
     Right (ExitSuccess, _, _) -> Right ()
     Right (code, out, err) ->
-      Left $
-        pack (show code) <> summarizeOutput out <> summarizeOutput err
+      Left $ show code <> summarizeOutput out <> summarizeOutput err
     Left ex ->
       Left $ pack command <> " could not run: " <> pack (displayException ex)
 
 summarizeOutput :: LBS.ByteString -> Text
 summarizeOutput value =
   let trimmed = T.strip $ decodeUtf8With lenientDecode $ LBS.toStrict value
-   in if T.null trimmed
-        then ""
-        else " " <> T.take 300 trimmed
+   in if T.null trimmed then "" else " " <> T.take 300 trimmed
 
 removeOutput :: FilePath -> IO ()
 removeOutput path = do
   exists <- doesFileExist path
-  when exists $ do
-    _ <- try (removeFile path) :: IO (Either IOException ())
-    pure ()
+  when exists $ void $ try @IOException $ removeFile path
