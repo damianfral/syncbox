@@ -10,6 +10,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module SyncBox.Server where
@@ -135,8 +136,16 @@ handleFileThumbnail fileID = do
           log W $ "Thumbnail unavailable for " <> pack (filePath file) <> ": " <> err
           throwIO err404
         Right path -> do
-          content <- liftIO $ BS.readFile path
-          pure $ addHeader "image/jpeg" content
+          contentResult <- liftIO $ try @IOException $ BS.readFile path
+          case contentResult of
+            Left readErr -> do
+              log W $
+                "Thumbnail read failed for "
+                  <> pack (filePath file)
+                  <> ": "
+                  <> pack (displayException readErr)
+              throwIO err404
+            Right content -> pure $ addHeader "image/jpeg" content
 
 handleFileRaw ::
   FileID ->

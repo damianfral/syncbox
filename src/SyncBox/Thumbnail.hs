@@ -46,32 +46,48 @@ ensureThumbnail file = case thumbnailType (filePath file) of
 
 generate :: ThumbnailType -> FilePath -> FilePath -> IO (Either Text FilePath)
 generate ImageThumbnail input output = do
-  result <-
-    runCommand
-      "magick"
-      [input, "-auto-orient", "-thumbnail", "256x>", "-quality", "82", output]
+  let args =
+        [ input <> "[0]",
+          "-auto-orient",
+          "-thumbnail",
+          "256x>",
+          "-quality",
+          "82",
+          output
+        ]
+  result <- runCommand "convert" args >>= verifyOutput output
   case result of
     Right () -> pure $ Right output
-    Left err -> pure $ Left err
+    Left err -> pure $ Left $ "convert failed: " <> err
 generate VideoThumbnail input output = do
-  generated <- runCommand "ffmpeg" (ffmpegArgs "1" input output)
+  let ffmpegFrame i = ffmpegArgs i input output
+  generated <- runCommand "ffmpeg" (ffmpegFrame 1) >>= verifyOutput output
   case generated of
     Right () -> pure $ Right output
     Left err1 -> do
       removeOutput output
-      generated0 <- runCommand "ffmpeg" $ ffmpegArgs "0" input output
+      generated0 <- runCommand "ffmpeg" (ffmpegFrame 0) >>= verifyOutput output
       pure $ case generated0 of
         Right () -> Right output
-        Left err0 -> do
+        Left err0 ->
           Left $ "ffmpeg seek=1 failed: " <> err1 <> "; seek=0 failed: " <> err0
 
-ffmpegArgs :: [Char] -> FilePath -> FilePath -> [String]
+verifyOutput :: FilePath -> Either Text () -> IO (Either Text ())
+verifyOutput output result = case result of
+  Left err -> pure $ Left err
+  Right () -> do
+    exists <- doesFileExist output
+    if exists
+      then pure $ Right ()
+      else pure $ Left "command succeeded but thumbnail file was not created"
+
+ffmpegArgs :: Int -> FilePath -> FilePath -> [String]
 ffmpegArgs position input output =
   [ "-y",
     "-loglevel",
     "error",
     "-ss",
-    position,
+    show position,
     "-i",
     input,
     "-frames:v",
