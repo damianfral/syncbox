@@ -96,7 +96,89 @@
           shellHook = precommitCheck.shellHook;
         };
       }
-    );
+    )
+    // {
+      nixosModules.default = {
+        config,
+        lib,
+        pkgs,
+        ...
+      }: let
+        cfg = config.services.syncbox;
+      in {
+        options.services.syncbox = {
+          package = lib.mkOption {
+            type = lib.types.package;
+            default = self.packages.${pkgs.stdenv.hostPlatform.system}.syncbox;
+            defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system}.syncbox";
+            description = "The syncbox package to use.";
+          };
+
+          port = lib.mkOption {
+            type = lib.types.port;
+            default = 8080;
+            description = "Port for syncbox to listen on.";
+          };
+
+          root = lib.mkOption {
+            type = lib.types.str;
+            description = "Directory to index and serve.";
+            example = "/srv/syncbox";
+          };
+
+          hidden = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Include hidden files and directories.";
+          };
+
+          openFirewall = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to open the firewall for the configured port.";
+          };
+        };
+
+        config = {
+          systemd.services.syncbox = {
+            description = "Syncbox file browser";
+            after = ["network.target"];
+            wantedBy = ["multi-user.target"];
+            path = [pkgs.imagemagick pkgs.ffmpeg];
+
+            serviceConfig = {
+              ExecStart =
+                "${lib.getExe cfg.package} --port ${toString cfg.port} --root "
+                + lib.escapeShellArg cfg.root
+                + lib.optionalString cfg.hidden " --hidden";
+              DynamicUser = true;
+              CacheDirectory = "syncbox";
+              Environment = "XDG_CACHE_HOME=%C";
+              Restart = "on-failure";
+
+              # Hardening
+              NoNewPrivileges = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectHome = true;
+              ProtectKernelTunables = true;
+              ProtectKernelModules = true;
+              ProtectControlGroups = true;
+              RestrictSUIDSGID = true;
+              RestrictNamespaces = true;
+              LockPersonality = true;
+              MemoryDenyWriteExecute = true;
+              RestrictRealtime = true;
+              SystemCallArchitectures = "native";
+            };
+          };
+
+          networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [cfg.port];
+        };
+      };
+
+      nixosModules.syncbox = self.nixosModules.default;
+    };
   nixConfig = {
     extra-substituters = "https://opensource.cachix.org";
     extra-trusted-public-keys = "opensource.cachix.org-1:6t9YnrHI+t4lUilDKP2sNvmFA9LCKdShfrtwPqj2vKc=";
