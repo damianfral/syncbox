@@ -239,7 +239,7 @@ handleFolderDownload uuid =
   selectDirectory uuid >>= \case
     Nothing -> throwIO err404
     Just dir@Directory {..} -> do
-      let fileName = pack $ "syncbox-" <> directoryName <> ".tar"
+      let fileName = pack $ "syncbox-" <> directoryName <> ".tgz"
       let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup fileName
       pure $ addHeader (makeAttachment fileName) $ do
         addHeader mimeType $ compressDirectory dir
@@ -263,7 +263,7 @@ compressDirectory Directory {..} = do
           Left err -> Prelude.error $ "Invalid tar path: " <> err
     packFileEntry fp tarPath
   let tarBS = write entries
-  sourceLazy tarBS
+  sourceLazy $ GZip.compress tarBS
 
 compressFile :: File -> ConduitT Void ByteString IO ()
 compressFile File {..} = do
