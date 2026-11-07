@@ -106,6 +106,7 @@ instance ToHttpApiData ViewMode where
 
 data Env m = Env
   { rootDir :: FilePath,
+    showHidden :: Bool,
     dbConnection :: Connection,
     logAction :: LogAction m Message
   }

@@ -8,7 +8,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -49,7 +48,7 @@ import SyncBox.Types
 import System.Directory (makeAbsolute)
 import System.Directory.Recursive (getFilesRecursive)
 import System.FSNotify as FS
-import System.FilePath (makeRelative, takeFileName)
+import System.FilePath (makeRelative, splitDirectories, takeFileName)
 import Text.Blaze.Html (Html)
 import Prelude qualified
 
@@ -73,11 +72,22 @@ app env = genericServeT (nt env) server
     nt :: Env AppM -> AppM a -> Handler a
     nt en appM = Handler $ runReaderT (unAppM appM) en
 
+isHiddenPath :: FilePath -> Bool
+isHiddenPath = any isDot . splitDirectories
+  where
+    isDot ('.' : _) = True
+    isDot _ = False
+
+shouldIncludePath :: Bool -> FilePath -> Bool
+shouldIncludePath showHidden path = showHidden || not (isHiddenPath path)
+
 processDirectory :: Directory -> AppM ()
-processDirectory dir = mdo
+processDirectory dir = do
+  Env {..} <- ask
   log I $ pack $ "Processing " <> directoryName dir
   files <- liftIO $ getFilesRecursive $ directoryPath dir
-  mapM_ insertFile files
+  let visibleFiles = filter (shouldIncludePath showHidden) files
+  mapM_ insertFile visibleFiles
 
 processRootDirectory :: AppM ()
 processRootDirectory = insertRootDirectory >>= processDirectory
@@ -93,14 +103,17 @@ printDB Env {..} = do
 
 processFSEvent :: FS.Event -> AppM ()
 processFSEvent evt = do
+  Env {..} <- ask
   log I $ show evt
-  void $ processEvent evt
+  void $ processEvent showHidden evt
   where
-    processEvent = \case
-      (FS.Added filepath _ IsFile) -> insertFile filepath
+    processEvent showHidden = \case
+      (FS.Added filepath _ IsFile)
+        | shouldIncludePath showHidden filepath -> insertFile filepath
       (FS.Removed filepath _ IsFile) -> deleteFileByFullPath filepath
-      (FS.Added filepath _ IsDirectory) ->
-        insertDirectory filepath >>= processDirectory
+      (FS.Added filepath _ IsDirectory)
+        | shouldIncludePath showHidden filepath ->
+            insertDirectory filepath >>= processDirectory
       (FS.Removed filepath _ IsDirectory) -> deleteDirectoryByFullPath filepath
       _ -> pure ()
 
@@ -239,10 +252,11 @@ handleFolderDownload uuid =
   selectDirectory uuid >>= \case
     Nothing -> throwIO err404
     Just dir@Directory {..} -> do
+      Env {..} <- ask
       let fileName = pack $ "syncbox-" <> directoryName <> ".tgz"
       let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup fileName
       pure $ addHeader (makeAttachment fileName) $ do
-        addHeader mimeType $ compressDirectory dir
+        addHeader mimeType $ compressDirectory showHidden dir
 
 handleIndex :: Maybe ViewMode -> AppM Html
 handleIndex mView =
@@ -253,10 +267,12 @@ resolveView = fromMaybe ListView
 
 ------------------------------------------------------------------------------------------
 
-compressDirectory :: Directory -> ConduitT Void ByteString IO ()
-compressDirectory Directory {..} = do
+compressDirectory :: Bool -> Directory -> ConduitT Void ByteString IO ()
+compressDirectory showHidden Directory {..} = do
   fps <- liftIO $ getFilesRecursive directoryPath
-  entries <- liftIO $ forM fps $ \fp -> do
+  let visibleFiles =
+        filter (shouldIncludePath showHidden . makeRelative directoryPath) fps
+  entries <- liftIO $ forM visibleFiles $ \fp -> do
     let archivePath = makeRelative directoryPath fp
         tarPath = case toTarPath False archivePath of
           Right tp -> tp
@@ -279,7 +295,8 @@ compressFile File {..} = do
 
 data ServerOptions = ServerOptions
   { port :: Int,
-    root :: FilePath
+    root :: FilePath,
+    hidden :: Bool
   }
   deriving (Show, Generic)
 
@@ -294,7 +311,7 @@ runCLI = do
     absPath <- makeAbsolute $ root opts'
     pure $ opts' & #root .~ absPath
   withConnection ":memory:" $ \db -> do
-    let env = Env (root opts) db richMessageAction
+    let env = Env (root opts) (hidden opts) db richMessageAction
     initDB db
     void $ runAppM env processRootDirectory
     withManager $ \mgr -> void $ runAppM env $ watcher opts mgr env
