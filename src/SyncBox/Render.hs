@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module SyncBox.Render where
@@ -35,35 +36,37 @@ import qualified Prelude
 ------------------------------------------------------------------------------------------
 
 renderFile :: ViewMode -> File -> Html
-renderFile view f@File {..} =
-  main ! Attr.class_ "page" $ do
-    section ! Attr.class_ "hero" $ do
-      a
-        ! Attr.class_ "back"
-        ! Attr.href (viewHref view $ previewFolderLink fileDirectoryID)
-        $ "← Back to folder"
-      h1 ! Attr.class_ "title" $ text $ pack fileName
-      p ! Attr.class_ "meta" $ do
-        span $ text $ renderFileSize fileSize
-        span ! Attr.class_ "dot" $ "·"
-        span $ text $ fileKind f
-      p ! Attr.class_ "path" $ text $ pack filePath
-    section ! Attr.class_ "preview" $ case previewBody f of
-      Just previewHtml -> previewHtml
-      Nothing -> p ! Attr.class_ "empty" $ "No preview available for this file."
-    section ! Attr.class_ "actions" $
-      a ! Attr.class_ "button" ! Attr.href (fileDownloadURI f) $
-        "Download"
+renderFile view f@File {..} = main ! class_ "page" $ do
+  section ! class_ "hero" $ do
+    a ! class_ "back" ! href hrefBack $ "← Back to folder"
+    h1 ! class_ "title" $ text $ pack fileName
+    p ! class_ "meta" $ do
+      span $ text $ renderFileSize fileSize
+      span ! class_ "dot" $ "·"
+      span $ text $ fileKind f
+    p ! class_ "path" $ text $ pack filePath
+  section ! class_ "preview" $ case previewBody f of
+    Just previewHtml -> previewHtml
+    Nothing -> p ! class_ "empty" $ "No preview available for this file."
+  section ! class_ "actions" $
+    a ! class_ "button" ! href (fileDownloadURI f) $
+      "Download"
+  where
+    hrefBack = viewHref view $ previewFolderLink fileDirectoryID
 
 previewBody :: File -> Maybe Html
 previewBody f = case drop 1 $ toLower <$> takeExtension (filePath f) of
   "jpeg" -> Just $ renderImage f
   "jpg" -> Just $ renderImage f
   "png" -> Just $ renderImage f
+  "gif" -> Just $ renderImage f
+  "webp" -> Just $ renderImage f
   "svg" -> Just $ renderImage f
   "mov" -> Just $ renderVideo f
   "mkv" -> Just $ renderVideo f
   "mp4" -> Just $ renderVideo f
+  "webm" -> Just $ renderVideo f
+  "avi" -> Just $ renderVideo f
   "txt" -> Just $ renderTxt f
   "md" -> Just $ renderTxt f
   "nix" -> Just $ renderTxt f
@@ -89,64 +92,64 @@ renderFileSize x
     y = fromInteger x
 
 renderDirectory :: ViewMode -> Directory -> [Directory] -> [File] -> Html
-renderDirectory view Directory {..} subDirs files =
-  main
-    ! Attr.class_ "page"
-    ! H.customAttribute "data-view" (toValue $ viewModeText view)
-    $ do
-      section ! Attr.class_ "hero" $ do
-        case directoryParentID of
-          Just parentID ->
-            a
-              ! Attr.class_ "back"
-              ! Attr.href (viewHref view $ previewFolderLink parentID)
-              $ "← Back"
-          Nothing -> mempty
-        p ! Attr.class_ "eyebrow" $ "Directory"
-        h1 ! Attr.class_ "title" $ text $ pack directoryName
-        p ! Attr.class_ "path" $ text $ pack directoryPath
-      section ! Attr.class_ "toolbar" $ do
-        p ! Attr.class_ "count" $
-          text $
-            pack (show $ Prelude.length subDirs + Prelude.length files)
-              <> if Prelude.length subDirs + Prelude.length files == 1
-                then " item"
-                else " items"
-        div ! Attr.class_ "toolbar-actions" $ do
-          viewSwitcher view directoryID
-          a
-            ! Attr.class_ "button secondary"
-            ! Attr.href (linkHref $ downloadFolderLink directoryID)
-            $ "Download folder"
-      if Prelude.null subDirs && Prelude.null files
-        then section ! Attr.class_ "panel empty-state" $ do
-          p ! Attr.class_ "empty" $ "This folder is empty."
-        else section ! Attr.class_ "panel listing" $ do
-          div ! Attr.class_ "listing-header" $ do
-            span "Name"
-            span ! Attr.class_ "item-size" $ "Size"
-            span mempty
-          ul ! Attr.class_ "listing-body" $ do
-            mapM_ (renderDirectoryLink view) subDirs
-            mapM_ (renderFileLink view) files
+renderDirectory view Directory {..} subDirs files = main
+  ! class_ "page"
+  ! H.customAttribute "data-view" (toValue $ viewModeText view)
+  $ do
+    section ! class_ "hero" $ do
+      case directoryParentID of
+        Just parentID ->
+          a ! class_ "back" ! href (viewHref view $ previewFolderLink parentID) $
+            "← Back"
+        Nothing -> mempty
+      p ! class_ "eyebrow" $ "Directory"
+      h1 ! class_ "title" $ text $ pack directoryName
+      p ! class_ "path" $ text $ pack directoryPath
+    section ! class_ "toolbar" $ do
+      p ! class_ "count" $
+        text $
+          pack (show $ Prelude.length subDirs + Prelude.length files)
+            <> if Prelude.length subDirs + Prelude.length files == 1
+              then " item"
+              else " items"
+      div ! class_ "toolbar-actions" $ do
+        viewSwitcher view directoryID
+        a
+          ! class_ "button secondary"
+          ! href (linkHref $ downloadFolderLink directoryID)
+          $ "Download folder"
+    if Prelude.null subDirs && Prelude.null files
+      then section ! class_ "panel empty-state" $ do p ! class_ "empty" $ "Empty."
+      else section ! class_ "panel listing" $ do
+        div ! class_ "listing-header" $ do
+          span "Name"
+          span ! class_ "item-size" $ "Size"
+          span mempty
+        ul ! class_ "listing-body" $ do
+          for_ subDirs $ renderDirectoryLink view
+          for_ files $ renderFileLink view
+
+ariaLabel :: AttributeValue -> Attribute
+ariaLabel = H.customAttribute "aria-label"
+
+ariaCurrent :: AttributeValue -> Attribute
+ariaCurrent = H.customAttribute "aria-current"
 
 viewSwitcher :: ViewMode -> DirectoryID -> Html
 viewSwitcher view directoryID =
-  div
-    ! Attr.class_ "segmented"
-    ! Attr.role "group"
-    ! H.customAttribute "aria-label" "View mode"
-    $ do
-      viewButton view directoryID ListView "List"
-      viewButton view directoryID GridView "Grid"
+  div ! class_ "segmented" ! role "group" ! ariaLabel "View mode" $ do
+    viewButton view directoryID ListView "List"
+    viewButton view directoryID GridView "Grid"
 
 viewButton :: ViewMode -> DirectoryID -> ViewMode -> Text -> Html
 viewButton current directoryID targetMode labelText =
   a
-    ! Attr.class_ (toValue (("view-button" <> if current == targetMode then " is-active" else "") :: Text))
-    ! Attr.href (viewHref targetMode $ previewFolderLink directoryID)
-    ! H.customAttribute "aria-current" (if current == targetMode then "page" else "false")
+    ! class_ (toValue @Text $ "view-button" <> isActiveClass)
+    ! href (viewHref targetMode $ previewFolderLink directoryID)
+    ! ariaCurrent (if current == targetMode then "page" else "false")
     $ text labelText
+  where
+    isActiveClass = if current == targetMode then " is-active" else ""
 
 --------------------------------------------------------------------------------
 
@@ -167,7 +170,7 @@ linkHref l = toValue ("/" <> show (linkURI l) :: Text)
 
 viewHref :: ViewMode -> Link -> AttributeValue
 viewHref view l =
-  toValue ("/" <> show (linkURI l) <> "?view=" <> viewModeText view :: Text)
+  toValue @Text $ "/" <> show (linkURI l) <> "?view=" <> viewModeText view
 
 --------------------------------------------------------------------------------
 
@@ -180,6 +183,9 @@ fileDownloadURI = fileID >>> downloadFileLink >>> linkHref
 fileThumbnailURI :: File -> AttributeValue
 fileThumbnailURI = fileID >>> fileThumbnail links >>> linkHref
 
+fileRawURI :: File -> AttributeValue
+fileRawURI = fileID >>> fileRaw links >>> linkHref
+
 directoryPreviewURI :: ViewMode -> Directory -> AttributeValue
 directoryPreviewURI view = directoryID >>> previewFolderLink >>> viewHref view
 
@@ -190,38 +196,35 @@ directoryDownloadURI = directoryID >>> downloadFolderLink >>> linkHref
 -- List view
 
 renderDirectoryLink :: ViewMode -> Directory -> Html
-renderDirectoryLink view dir = li ! Attr.class_ "item" $ do
-  a ! Attr.class_ "item-main" ! Attr.href (directoryPreviewURI view dir) $ do
-    span ! Attr.class_ "badge folder" $ "DIR"
-    span ! Attr.class_ "item-name" $ text $ pack $ directoryName dir
-  span ! Attr.class_ "item-size" $ "—"
+renderDirectoryLink view dir = li ! class_ "item" $ do
+  a ! class_ "item-main" ! href (directoryPreviewURI view dir) $ do
+    span ! class_ "badge folder" $ "DIR"
+    span ! class_ "item-name" $ text $ pack $ directoryName dir
+  span ! class_ "item-size" $ "—"
   a
-    ! Attr.class_ "icon-button"
-    ! Attr.href (directoryDownloadURI dir)
+    ! class_ "icon-button"
+    ! href (directoryDownloadURI dir)
     ! Attr.title "Download folder"
     $ "↓"
 
 renderFileLink :: ViewMode -> File -> Html
-renderFileLink view file@File {..} = li ! Attr.class_ "item" $ do
-  a ! Attr.class_ "item-main" ! Attr.href (filePreviewURI view file) $ do
+renderFileLink view file@File {..} = li ! class_ "item" $ do
+  a ! class_ "item-main" ! href (filePreviewURI view file) $ do
     renderFileBadge file
-    span ! Attr.class_ "item-name" $ text $ pack fileName
-  span ! Attr.class_ "item-size" $ text $ renderFileSize fileSize
+    span ! class_ "item-name" $ text $ pack fileName
+  span ! class_ "item-size" $ text $ renderFileSize fileSize
   a
-    ! Attr.class_ "icon-button"
-    ! Attr.href (fileDownloadURI file)
+    ! class_ "icon-button"
+    ! href (fileDownloadURI file)
     ! Attr.title "Download file"
     $ "↓"
 
 renderFileBadge :: File -> Html
-renderFileBadge file =
-  case thumbnailType (filePath file) of
-    Just _ ->
-      span ! Attr.class_ "thumb" $
-        img
-          ! Attr.src (fileThumbnailURI file)
-          ! Attr.alt ""
-    Nothing -> span ! Attr.class_ "badge" $ text $ fileKind file
+renderFileBadge file = case thumbnailType (filePath file) of
+  Just _ ->
+    span ! class_ "thumb" $
+      img ! src (fileThumbnailURI file) ! alt ""
+  Nothing -> span ! class_ "badge" $ text $ fileKind file
 
 --------------------------------------------------------------------------------
 -- Cover view
@@ -229,21 +232,21 @@ renderFileBadge file =
 renderVideo :: File -> Html
 renderVideo file =
   video
-    ! Attr.class_ "media"
-    ! Attr.src (fileDownloadURI file)
-    ! Attr.controls "true"
-    ! Attr.preload "metadata"
+    ! class_ "media"
+    ! src (fileRawURI file)
+    ! controls "true"
+    ! preload "metadata"
     $ mempty
 
 renderImage :: File -> Html
 renderImage file =
   img
-    ! Attr.class_ "media"
-    ! src (fileDownloadURI file)
+    ! class_ "media"
+    ! src (fileRawURI file)
     ! alt (toValue $ pack $ fileName file)
 
 renderTxt :: File -> Html
-renderTxt _ = pre ! Attr.class_ "text-preview" $ code $ text ""
+renderTxt _ = pre ! class_ "text-preview" $ code $ text ""
 
 --------------------------------------------------------------------------------
 -- Template
@@ -257,14 +260,14 @@ renderPage :: Html -> Html
 renderPage page =
   docTypeHtml $ do
     head $ do
-      meta ! Attr.charset "utf-8"
-      meta ! Attr.name "viewport" ! Attr.content "width=device-width, initial-scale=1"
+      meta ! charset "utf-8"
+      meta ! name "viewport" ! content "width=device-width, initial-scale=1"
       H.title "Syncbox"
       H.style $ toHtml styleCss
     body $ do
-      header ! Attr.class_ "site-header" $
-        a ! Attr.class_ "brand" ! Attr.href "/" $ do
-          span ! Attr.class_ "brand-mark" $ mempty
+      header ! class_ "site-header" $
+        a ! class_ "brand" ! href "/" $ do
+          span ! class_ "brand-mark" $ mempty
           span "syncbox"
       page
 

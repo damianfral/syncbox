@@ -62,13 +62,20 @@ type FileThumbnailAPI =
     :> "thumbnail"
     :> Get '[OctetStream] (Headers '[Header "Content-Type" Text] ByteString)
 
+type FileRawAPI =
+  "file"
+    :> Capture "nodeID" FileID
+    :> "raw"
+    :> StreamGet NoFraming OctetStream (Headers '[Header "Content-Type" Text] StreamIOBytes)
+
 data SyncBoxRoutes context = SyncBoxRoutes
   { indexPage :: context :- IndexAPI,
     folderPreview :: context :- FolderPreviewAPI,
     folderDownload :: context :- FolderDownloadAPI,
     filePreview :: context :- FilePreviewAPI,
     fileDownload :: context :- FileDownloadAPI,
-    fileThumbnail :: context :- FileThumbnailAPI
+    fileThumbnail :: context :- FileThumbnailAPI,
+    fileRaw :: context :- FileRawAPI
   }
   deriving (Generic)
 

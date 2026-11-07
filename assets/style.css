@@ -478,10 +478,9 @@ main[data-view="grid"] .icon-button {
   align-items: center;
   justify-content: center;
   min-height: 120px;
-  padding: 18px;
+  padding: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: auto;
 }
@@ -490,7 +489,6 @@ main[data-view="grid"] .icon-button {
   display: block;
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
 }
 
 .text-preview {
@@ -536,11 +534,11 @@ main[data-view="grid"] .icon-button {
   }
 
   .listing-header .item-size,
-  .item > .item-size {
+  .item>.item-size {
     display: none;
   }
 
-  main[data-view="grid"] .item > .item-size {
+  main[data-view="grid"] .item>.item-size {
     display: block;
   }
 

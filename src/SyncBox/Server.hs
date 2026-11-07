@@ -22,6 +22,7 @@ import Colog.Core
 import Conduit
 import Control.Lens hiding ((<.>))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import Data.Generics.Labels ()
 import Data.Text (pack)
 import Database.SQLite.Simple
@@ -57,6 +58,7 @@ server =
       filePreview = handleFilePreview,
       fileDownload = handleFileDownload,
       fileThumbnail = handleFileThumbnail,
+      fileRaw = handleFileRaw,
       indexPage = handleIndex
     }
 
@@ -123,6 +125,16 @@ handleFileThumbnail fileID = do
         Right path -> do
           content <- liftIO $ BS.readFile path
           pure $ addHeader "image/jpeg" content
+
+handleFileRaw ::
+  FileID -> AppM (Headers '[Header "Content-Type" Text] (ConduitT Void ByteString IO ()))
+handleFileRaw fileID =
+  selectFile fileID >>= \case
+    Nothing -> throwError err404
+    Just File {..} -> do
+      let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
+      contents <- liftIO $ LBS.readFile filePath
+      pure $ addHeader mimeType $ sourceLazy contents
 
 handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
 handleFileDownload path =
