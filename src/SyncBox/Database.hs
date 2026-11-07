@@ -187,7 +187,8 @@ insertDirectory directoryPath = do
       case mDir of
         Just dir -> pure dir
         Nothing -> do
-          let directoryName = takeBaseName directoryPath
+          -- takeDirectory doesn't work for hidden dirs
+          let directoryName = takeFileName directoryPath
               directoryParentPath = takeDirectory directoryPath
           directoryParent <- insertDirectory directoryParentPath
           let directoryParentID = Just $ directoryID directoryParent
