@@ -67,10 +67,15 @@ a {
   color: var(--bg);
 }
 
+@view-transition {
+  navigation: auto;
+}
+
 .site-header {
   max-width: 880px;
   margin: 0 auto;
   padding: 28px 24px 0;
+  view-transition-name: site-header;
 }
 
 .brand {
@@ -106,6 +111,21 @@ a {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  view-transition-name: page;
+}
+
+::view-transition-old(page),
+::view-transition-new(page) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
 }
 
 .hero {
