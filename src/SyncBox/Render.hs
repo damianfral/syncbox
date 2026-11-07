@@ -91,7 +91,7 @@ renderFileSize x
     baseR n = 1024 ** n
     y = fromInteger x
 
-renderDirectory :: ViewMode -> Directory -> [Directory] -> [File] -> Html
+renderDirectory :: ViewMode -> Directory -> [(Directory, Integer)] -> [File] -> Html
 renderDirectory view Directory {..} subDirs files = main
   ! class_ "page"
   ! H.customAttribute "data-view" (toValue $ viewModeText view)
@@ -126,7 +126,7 @@ renderDirectory view Directory {..} subDirs files = main
           span ! class_ "item-size" $ "Size"
           span mempty
         ul ! class_ "listing-body" $ do
-          for_ subDirs $ renderDirectoryLink view
+          for_ subDirs $ uncurry (renderDirectoryLink view)
           for_ files $ renderFileLink view
 
 ariaLabel :: AttributeValue -> Attribute
@@ -195,12 +195,12 @@ directoryDownloadURI = directoryID >>> downloadFolderLink >>> linkHref
 --------------------------------------------------------------------------------
 -- List view
 
-renderDirectoryLink :: ViewMode -> Directory -> Html
-renderDirectoryLink view dir = li ! class_ "item" $ do
+renderDirectoryLink :: ViewMode -> Directory -> Integer -> Html
+renderDirectoryLink view dir totalSize = li ! class_ "item" $ do
   a ! class_ "item-main" ! href (directoryPreviewURI view dir) $ do
     span ! class_ "badge folder" $ "DIR"
     span ! class_ "item-name" $ text $ pack $ directoryName dir
-  span ! class_ "item-size" $ "—"
+  span ! class_ "item-size" $ text $ renderFileSize totalSize
   a
     ! class_ "icon-button"
     ! href (directoryDownloadURI dir)

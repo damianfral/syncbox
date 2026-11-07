@@ -19,7 +19,7 @@ import Colog
 import Data.Text (pack)
 import Data.UUID.V4
 import Database.SQLite.Simple
-import qualified NeatInterpolation
+import Database.SQLite.Simple.QQ (sql)
 import Protolude hiding (div, head, link, log)
 import Servant (err500)
 import SyncBox.Types
@@ -31,47 +31,34 @@ import qualified Prelude
 
 schema :: [Query]
 schema =
-  Query
-    <$> [ [NeatInterpolation.text|
+  [ [sql|
       CREATE TABLE directories
-        (
-           directory_id TEXT PRIMARY KEY,
-           name         TEXT NOT NULL,
-           path         TEXT NOT NULL,
-           parent       TEXT REFERENCES directories(directory_id) ON DELETE CASCADE
+        ( directory_id TEXT PRIMARY KEY
+        , name TEXT NOT NULL
+        , path TEXT NOT NULL
+        , parent TEXT REFERENCES directories(directory_id) ON DELETE CASCADE
         );
-        |],
-          [NeatInterpolation.text|
+    |],
+    [sql|
       CREATE TABLE files
-        (
-           file_id   TEXT NOT NULL,
-           name      TEXT NOT NULL,
-           size      INTEGER NOT NULL,
-           path      TEXT NOT NULL,
-           directory TEXT NOT NULL REFERENCES directories(directory_id) ON DELETE CASCADE
-        );
-        |],
-          [NeatInterpolation.text|
-
-      CREATE UNIQUE INDEX unique_directory_id ON directories (directory_id);
-        |],
-          [NeatInterpolation.text|
-      CREATE UNIQUE INDEX unique_directory_path ON directories (path);
-        |],
-          [NeatInterpolation.text|
-
-      CREATE UNIQUE INDEX unique_file_id ON files (file_id);
-        |],
-          [NeatInterpolation.text|
-
-      CREATE UNIQUE INDEX unique_files_path ON files (path);
-        |]
-        ]
+      (
+         file_id TEXT NOT NULL,
+         name TEXT NOT NULL,
+         size INTEGER NOT NULL,
+         path TEXT NOT NULL,
+         directory TEXT NOT NULL REFERENCES directories(directory_id) ON DELETE CASCADE
+      );
+    |],
+    [sql|CREATE UNIQUE INDEX unique_directory_id ON directories (directory_id); |],
+    [sql|CREATE UNIQUE INDEX unique_directory_path ON directories (path);|],
+    [sql|CREATE UNIQUE INDEX unique_file_id ON files (file_id);|],
+    [sql|CREATE UNIQUE INDEX unique_files_path ON files (path);|]
+  ]
 
 -------------------------------------------------------------------------------
 
 initDB :: Connection -> IO ()
-initDB conn = mapM_ (execute_ conn) schema
+initDB = for_ schema . execute_
 
 --------------------------------------------------------------------------------
 
@@ -95,14 +82,14 @@ selectRootDirectory = do
 selectDirectory :: DirectoryID -> AppM (Maybe Directory)
 selectDirectory uuid = do
   Env {..} <- ask
-  liftIO $ Protolude.headMay <$> query dbConnection q (Only uuid)
+  liftIO $ headMay <$> query dbConnection q (Only uuid)
   where
     q = "select * from directories where directory_id = ? ORDER BY name ASC;"
 
 selectDirectoryByFullPath :: FilePath -> AppM (Maybe Directory)
 selectDirectoryByFullPath filePath = do
   Env {..} <- ask
-  liftIO $ Protolude.headMay <$> query dbConnection q (Only filePath)
+  liftIO $ headMay <$> query dbConnection q (Only filePath)
   where
     q = "select * from directories where path = ? ORDER BY name ASC;"
 
@@ -116,14 +103,14 @@ selectSubDirectories dirID = do
 selectFile :: FileID -> AppM (Maybe File)
 selectFile fileUUID = do
   Env {..} <- ask
-  liftIO $ Protolude.headMay <$> query dbConnection q (Only fileUUID)
+  liftIO $ headMay <$> query dbConnection q (Only fileUUID)
   where
     q = "select * from files where file_id = ? ORDER BY name ASC;"
 
 selectFileByFullPath :: FilePath -> AppM (Maybe File)
 selectFileByFullPath filePath = do
   Env {..} <- ask
-  liftIO $ Protolude.headMay <$> query dbConnection q (Only filePath)
+  liftIO $ headMay <$> query dbConnection q (Only filePath)
   where
     q = "select * from files where path = ? ORDER BY name ASC;"
 
@@ -134,18 +121,38 @@ selectFilesByDirectory dirID = do
   where
     q = "select * from files where directory = ? ORDER BY name ASC;"
 
+selectDirectorySize :: DirectoryID -> AppM Integer
+selectDirectorySize dirID = do
+  Env {..} <- ask
+  rows <- liftIO $ query dbConnection q $ Only dirID
+  pure $ maybe 0 fromOnly $ headMay rows
+  where
+    q =
+      [sql|
+        WITH RECURSIVE subtree(id) AS (
+          SELECT directory_id FROM directories WHERE directory_id = ?
+          UNION ALL
+          SELECT directories.directory_id FROM directories
+          JOIN subtree ON directories.parent = subtree.id
+        )
+        SELECT COALESCE(SUM(files.size), 0) FROM files
+        WHERE files.directory IN (SELECT id FROM subtree)
+      |]
+
 deleteFile :: FileID -> AppM ()
 deleteFile fileID = do
   Env {..} <- ask
-  liftIO $ execute dbConnection "delete from files where file_id = ?;" $ Only fileID
+  let q = "delete from files where file_id = ?;"
+  liftIO $ execute dbConnection q $ Only fileID
 
 deleteFileByFullPath :: FilePath -> AppM ()
 deleteFileByFullPath fp = do
   Env {..} <- ask
-  liftIO $ execute dbConnection "delete from files where path = ?;" $ Only fp
+  let q = "delete from files where path = ?;"
+  liftIO $ execute dbConnection q $ Only fp
 
 deleteDirectoryByFullPath :: FilePath -> AppM ()
-deleteDirectoryByFullPath fp = do
+deleteDirectoryByFullPath fp =
   selectDirectoryByFullPath fp >>= \case
     Nothing -> pure ()
     Just dir -> deleteDirectory $ directoryID dir
@@ -153,7 +160,8 @@ deleteDirectoryByFullPath fp = do
 deleteDirectory :: DirectoryID -> AppM ()
 deleteDirectory uuid = do
   Env {..} <- ask
-  liftIO $ execute dbConnection "delete from directories where directory_id = ?;" $ Only uuid
+  let q = "delete from directories where directory_id = ?;"
+  liftIO $ execute dbConnection q $ Only uuid
 
 insertRootDirectory :: AppM Directory
 insertRootDirectory = do
@@ -163,8 +171,8 @@ insertRootDirectory = do
   let directoryName = Prelude.last $ splitDirectories directoryPath
   let directoryParentID = Nothing
   let directory = Directory {..}
-  liftIO $ execute dbConnection "insert into directories values(?,?,?,?);" directory
-  pure directory
+  let q = "insert into directories values(?,?,?,?);"
+  liftIO $ execute dbConnection q directory $> directory
 
 insertDirectory :: FilePath -> AppM Directory
 insertDirectory directoryPath = do
@@ -172,7 +180,9 @@ insertDirectory directoryPath = do
   let isRootDirectory = makeRelative rootDir directoryPath == "."
   if isRootDirectory
     then selectRootDirectory
-    else do
+    else selectNonRootDirectory dbConnection
+  where
+    selectNonRootDirectory dbConnection = do
       mDir <- selectDirectoryByFullPath directoryPath
       case mDir of
         Just dir -> pure dir
@@ -183,8 +193,8 @@ insertDirectory directoryPath = do
           let directoryParentID = Just $ directoryID directoryParent
           directoryID <- nextDirectoryID
           let dir = Directory {..}
-          liftIO $ execute dbConnection "insert into directories values(?,?,?,?);" dir
-          pure dir
+          let q = "insert into directories values(?,?,?,?);"
+          liftIO $ execute dbConnection q dir $> dir
 
 insertFile :: FilePath -> AppM ()
 insertFile filePath' = do
@@ -198,4 +208,5 @@ insertFile filePath' = do
   fileID <- liftIO nextFileID
   fileSize <- liftIO $ getFileSize filePath
   let file = File {..}
-  liftIO $ execute dbConnection "INSERT or REPLACE INTO files values(?,?,?,?,?);" file
+  let q = "INSERT or REPLACE INTO files values(?,?,?,?,?);"
+  liftIO $ execute dbConnection q file

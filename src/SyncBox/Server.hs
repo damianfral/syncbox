@@ -128,8 +128,8 @@ handleFileThumbnail fileID = do
 
 handleFileRaw ::
   FileID -> AppM (Headers '[Header "Content-Type" Text] (ConduitT Void ByteString IO ()))
-handleFileRaw fileID =
-  selectFile fileID >>= \case
+handleFileRaw =
+  selectFile >=> \case
     Nothing -> throwError err404
     Just File {..} -> do
       let mimeType = decodeUtf8With lenientDecode $ defaultMimeLookup $ toS filePath
@@ -156,8 +156,11 @@ handleFolderPreview uuid mView =
     viewMode = resolveView mView
     getDirAndRender dir = do
       subdDirs <- selectSubDirectories uuid
+      subdDirsWithSize <- for subdDirs $ \subDir -> do
+        totalSize <- selectDirectorySize (directoryID subDir)
+        pure (subDir, totalSize)
       files <- selectFilesByDirectory uuid
-      pure $ renderPage $ renderDirectory viewMode dir subdDirs files
+      pure $ renderPage $ renderDirectory viewMode dir subdDirsWithSize files
 
 handleFolderDownload ::
   DirectoryID -> AppM (WithContent (ConduitT Void ByteString IO ()))
