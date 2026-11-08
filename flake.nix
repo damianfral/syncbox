@@ -56,10 +56,22 @@
               final.lib.composeExtensions (old.overrides or (_: _: {}))
               (
                 self: _super: {
-                  syncbox =
-                    self.generateOptparseApplicativeCompletions
-                    ["syncbox"]
-                    (self.callCabal2nix "syncbox" filteredSrc {});
+                  syncbox = let
+                    externalTools = with final; [imagemagick ffmpeg];
+                  in
+                    (self.generateOptparseApplicativeCompletions
+                      ["syncbox"]
+                      (self.callCabal2nix "syncbox" filteredSrc {}))
+                    .overrideAttrs (oldAttrs: {
+                      nativeBuildInputs = with final;
+                        oldAttrs.nativeBuildInputs ++ [makeWrapper];
+                      postInstall =
+                        (oldAttrs.postInstall or "")
+                        + ''
+                          wrapProgram $out/bin/syncbox \
+                            --suffix PATH : ${final.lib.makeBinPath externalTools}
+                        '';
+                    });
                 }
               );
           });
@@ -90,8 +102,6 @@
             hpack
             hlint
             yamlfix
-            ffmpeg
-            graphicsmagick
           ];
           shellHook = precommitCheck.shellHook;
         };
