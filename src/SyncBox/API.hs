@@ -1,11 +1,5 @@
-{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -16,7 +10,7 @@ import Protolude
 import Servant
 import Servant.HTML.Blaze
 import SyncBox.Core
-import Text.Blaze.Html qualified as Blaze
+import Text.Blaze.Html5 (Html)
 
 type StreamIOBytes = ConduitT Void ByteString IO ()
 
@@ -27,16 +21,14 @@ type WithContent a = Headers HeadersContent a
 
 --------------------------------------------------------------------------------
 
-type IndexAPI =
-  QueryParam "view" ViewMode
-    :> Get '[HTML] Blaze.Html
+type IndexAPI = QueryParam "view" ViewMode :> Get '[HTML] Html
 
 type FolderPreviewAPI =
   "folder"
     :> Capture "nodeID" DirectoryID
     :> "preview"
     :> QueryParam "view" ViewMode
-    :> Get '[HTML] Blaze.Html
+    :> Get '[HTML] Html
 
 type FolderDownloadAPI =
   "folder"
@@ -49,7 +41,7 @@ type FilePreviewAPI =
     :> Capture "nodeID" FileID
     :> "preview"
     :> QueryParam "view" ViewMode
-    :> Get '[HTML] Blaze.Html
+    :> Get '[HTML] Html
 
 type FileDownloadAPI =
   "file"
@@ -67,7 +59,7 @@ type FileRawAPI =
   "file"
     :> Capture "nodeID" FileID
     :> "raw"
-    :> Header "Range" Text
+    :> Header "Range" Range
     :> RawM
 
 data SyncBoxRoutes context = SyncBoxRoutes

@@ -1,16 +1,12 @@
-{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -104,6 +100,33 @@ instance FromHttpApiData ViewMode where
 
 instance ToHttpApiData ViewMode where
   toQueryParam = viewModeText
+
+-- | Parsed HTTP byte range (bytes=S-E, bytes=S-, bytes=-N).
+-- For an open end (S-), rangeEnd is -1. For a suffix (-N), rangeStart is -1.
+data Range = Range
+  { rangeStart :: Integer,
+    rangeEnd :: Integer
+  }
+  deriving (Eq, Show)
+
+instance FromHttpApiData Range where
+  parseUrlPiece value = do
+    spec <- maybe (Left "Invalid range") Right $ T.stripPrefix "bytes=" $ T.strip value
+    when (T.any (== ',') spec) $ Left "Multiple ranges are not supported"
+    case T.breakOn "-" (T.takeWhile (/= ',') spec) of
+      ("", suffixText) -> do
+        n <- parseInteger $ T.drop 1 suffixText
+        pure $ Range (-1) n
+      (startText, endPart) -> do
+        start <- parseInteger startText
+        let endText = T.drop 1 endPart
+        if T.null endText
+          then pure $ Range start (-1)
+          else Range start <$> parseInteger endText
+    where
+      parseInteger t = case reads (T.unpack t) of
+        [(n, "")] -> Right n
+        _ -> Left "Invalid range"
 
 data Env m = Env
   { rootDir :: FilePath,

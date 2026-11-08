@@ -17,7 +17,6 @@ import Conduit
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text (pack)
-import Data.Text qualified as T
 import Network.HTTP.Types.Header (hContentLength, hContentRange, hContentType)
 import Network.HTTP.Types.Status (status200, status206, status416)
 import Network.Mime (defaultMimeLookup)
@@ -142,7 +141,7 @@ handleFileThumbnail fileID = do
 
 handleFileRaw ::
   FileID ->
-  Maybe Text ->
+  Maybe Range ->
   Request ->
   (Response -> IO ResponseReceived) ->
   AppM ResponseReceived
@@ -153,51 +152,40 @@ handleFileRaw fID mRange _req respondWai =
       let mimeType = defaultMimeLookup $ toS filePath
           total = fileSize
           commonHeaders = [("Accept-Ranges", "bytes"), (hContentType, mimeType)]
-      case parseByteRange mRange total of
+      case mRange of
         Nothing ->
           let headers = (hContentLength, encodeUtf8 $ show total) : commonHeaders
            in respondWai $ responseFile status200 headers filePath Nothing
-        Just (Left ()) ->
-          let contentRange = "bytes */" <> show total
-              headers = [("Accept-Ranges", "bytes"), (hContentRange, contentRange)]
-           in respondWai $ responseLBS status416 headers LBS.empty
-        Just (Right (start, end)) -> do
-          let len = end - start + 1
-              range = mconcat ["bytes ", show start, "-", show end, "/", show total]
-              headers =
-                (hContentLength, encodeUtf8 $ show len)
-                  : (hContentRange, range)
-                  : commonHeaders
-              filePart = FilePart start len total
-          respondWai $ responseFile status206 headers filePath (Just filePart)
+        Just range -> case resolveRange range total of
+          Nothing ->
+            let contentRange = "bytes */" <> show total
+                headers = [("Accept-Ranges", "bytes"), (hContentRange, contentRange)]
+             in respondWai $ responseLBS status416 headers LBS.empty
+          Just (Range start end) -> do
+            let len = end - start + 1
+                range' = mconcat ["bytes ", show start, "-", show end, "/", show total]
+                headers =
+                  (hContentLength, encodeUtf8 $ show len)
+                    : (hContentRange, range')
+                    : commonHeaders
+                filePart = FilePart start len total
+            respondWai $ responseFile status206 headers filePath (Just filePart)
 
-parseByteRange :: Maybe Text -> Integer -> Maybe (Either () (Integer, Integer))
-parseByteRange Nothing _ = Nothing
-parseByteRange (Just value) total = do
-  range <- T.stripPrefix "bytes=" $ T.strip value
-  if T.any (== ',') range
-    then Nothing
-    else case T.breakOn "-" (T.takeWhile (/= ',') range) of
-      ("", suffixText) -> do
-        suffix <- readIntegerText $ T.drop 1 suffixText
-        if total <= 0 || suffix <= 0
-          then Just (Left ())
-          else
-            let len = min total suffix
-             in Just (Right (total - len, total - 1))
-      (startText, endPart) -> do
-        start <- readIntegerText startText
-        let endText = T.drop 1 endPart
-        end <-
-          if T.null endText then Just (total - 1) else readIntegerText endText
-        if total <= 0 || start > end || start >= total
-          then Just (Left ())
-          else Just (Right (start, min end (total - 1)))
-
-readIntegerText :: Text -> Maybe Integer
-readIntegerText t = case reads $ T.unpack t of
-  [(n, "")] -> Just n
-  _ -> Nothing
+-- | RFC 9110
+resolveRange :: Range -> Integer -> Maybe Range
+resolveRange (Range start end) total
+  -- suffix: last ened bytes
+  | start == -1 = do
+      guard $ total > 0 && end > 0
+      let len = min total end in Just $ Range (total - len) (total - 1)
+  -- open end
+  | end == -1 = do
+      guard $ total > 0 && start >= 0 && start < total
+      let end' = total - 1 in Just $ Range start end'
+  -- closed: start-eend
+  | otherwise = do
+      guard $ total > 0 && start >= 0 && start <= end && start < total
+      Just $ Range start $ min end (total - 1)
 
 handleFileDownload :: FileID -> AppM (WithContent (ConduitT Void ByteString IO ()))
 handleFileDownload path =
