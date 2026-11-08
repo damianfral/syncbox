@@ -11,6 +11,7 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 - assets/style.css
+- migrations/*.sql
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package

@@ -10,6 +10,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -17,7 +18,9 @@
 module SyncBox.Database where
 
 import Colog
+import Data.FileEmbed (embedStringFile, makeRelativeToProject)
 import Data.Text (pack)
+import Data.Text qualified as T
 import Data.UUID.V4
 import Database.SQLite.Simple
 import Database.SQLite.Simple.QQ (sql)
@@ -30,36 +33,21 @@ import Prelude qualified
 
 --------------------------------------------------------------------------------
 
-schema :: [Query]
-schema =
-  [ [sql|
-      CREATE TABLE directories
-        ( directory_id TEXT PRIMARY KEY
-        , name TEXT NOT NULL
-        , path TEXT NOT NULL
-        , parent TEXT REFERENCES directories(directory_id) ON DELETE CASCADE
-        );
-    |],
-    [sql|
-      CREATE TABLE files
-      (
-         file_id TEXT NOT NULL,
-         name TEXT NOT NULL,
-         size INTEGER NOT NULL,
-         path TEXT NOT NULL,
-         directory TEXT NOT NULL REFERENCES directories(directory_id) ON DELETE CASCADE
-      );
-    |],
-    [sql|CREATE UNIQUE INDEX unique_directory_id ON directories (directory_id); |],
-    [sql|CREATE UNIQUE INDEX unique_directory_path ON directories (path);|],
-    [sql|CREATE UNIQUE INDEX unique_file_id ON files (file_id);|],
-    [sql|CREATE UNIQUE INDEX unique_files_path ON files (path);|]
+initialMigration :: Text
+initialMigration =
+  $(makeRelativeToProject "migrations/20261108-initial.sql" >>= embedStringFile)
+
+migrationStatements :: [Query]
+migrationStatements =
+  [ Query (T.strip stmt)
+  | stmt <- T.splitOn ";" initialMigration,
+    not (T.null (T.strip stmt))
   ]
 
 -------------------------------------------------------------------------------
 
 initDB :: Connection -> IO ()
-initDB = for_ schema . execute_
+initDB conn = for_ migrationStatements $ execute_ conn
 
 --------------------------------------------------------------------------------
 

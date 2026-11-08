@@ -34,7 +34,7 @@
         pkgs = pkgsFor system;
         filteredSrc = pkgs.nix-filter {
           root = ./.;
-          include = ["src/" "test/" "assets/" "package.yaml" "LICENSE"];
+          include = ["src/" "test/" "assets/" "migrations/" "package.yaml" "LICENSE"];
         };
         precommitCheck = pre-commit-hooks.lib.${system}.run {
           src = ./.;
