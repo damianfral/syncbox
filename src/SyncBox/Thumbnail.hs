@@ -38,7 +38,7 @@ ensureThumbnail file = case thumbnailType (filePath file) of
   Just kind -> do
     cache <- getXdgDirectory XdgCache "syncbox/thumbnails"
     createDirectoryIfMissing True cache
-    let output = cache </> show (unFileID $ fileID file) <> ".jpg"
+    let output = cache </> T.unpack (unFileID $ fileID file) <> ".jpg"
     exists <- doesFileExist output
     if exists
       then pure $ Right output

@@ -21,7 +21,6 @@ import Colog
 import Data.FileEmbed (embedStringFile, makeRelativeToProject)
 import Data.Text (pack)
 import Data.Text qualified as T
-import Data.UUID.V4
 import Database.SQLite.Simple
 import Database.SQLite.Simple.QQ (sql)
 import Protolude hiding (div, head, link, log)
@@ -48,14 +47,6 @@ migrationStatements =
 
 initDB :: Connection -> IO ()
 initDB conn = for_ migrationStatements $ execute_ conn
-
---------------------------------------------------------------------------------
-
-nextDirectoryID :: (MonadIO m) => m DirectoryID
-nextDirectoryID = liftIO $ DirectoryID <$> nextRandom
-
-nextFileID :: IO FileID
-nextFileID = FileID <$> nextRandom
 
 --------------------------------------------------------------------------------
 
@@ -164,12 +155,12 @@ deleteDirectory uuid = do
 insertRootDirectory :: AppM Directory
 insertRootDirectory = do
   Env {..} <- ask
-  directoryID <- nextDirectoryID
   directoryPath <- liftIO $ makeAbsolute rootDir
-  let directoryName = Prelude.last $ splitDirectories directoryPath
-  let directoryParentID = Nothing
-  let directory = Directory {..}
-  let q = "insert into directories values(?,?,?,?);"
+  let directoryID = directoryIDForPath directoryPath
+      directoryName = Prelude.last $ splitDirectories directoryPath
+      directoryParentID = Nothing
+      directory = Directory {..}
+      q = "insert into directories values(?,?,?,?);"
   liftIO $ execute dbConnection q directory $> directory
 
 insertDirectory :: FilePath -> AppM Directory
@@ -189,10 +180,14 @@ insertDirectory directoryPath = do
           let directoryName = takeFileName directoryPath
               directoryParentPath = takeDirectory directoryPath
           directoryParent <- insertDirectory directoryParentPath
-          let directoryParentID = Just $ directoryID directoryParent
-          directoryID <- nextDirectoryID
-          let dir = Directory {..}
-          let q = "insert into directories values(?,?,?,?);"
+          let dir =
+                Directory
+                  { directoryID = directoryIDForPath directoryPath,
+                    directoryName = directoryName,
+                    directoryPath = directoryPath,
+                    directoryParentID = Just $ directoryID directoryParent
+                  }
+              q = "insert into directories values(?,?,?,?);"
           liftIO $ execute dbConnection q dir $> dir
 
 insertFile :: FilePath -> AppM ()
@@ -203,9 +198,9 @@ insertFile filePath' = do
   let directoryPath = takeDirectory filePath
   dir <- insertDirectory directoryPath
   let fileName = takeFileName filePath
-  let fileDirectoryID = directoryID dir
-  fileID <- liftIO nextFileID
+      fileDirectoryID = directoryID dir
+      fileID = fileIDForPath filePath
   fileSize <- liftIO $ getFileSize filePath
   let file = File {..}
-  let q = "INSERT or REPLACE INTO files values(?,?,?,?,?);"
+      q = "INSERT or REPLACE INTO files values(?,?,?,?,?);"
   liftIO $ execute dbConnection q file

@@ -13,37 +13,46 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module SyncBox.Core where
 
+import BLAKE3 qualified
 import Colog
 import Data.Text qualified as T
-import Data.UUID (UUID)
-import Data.UUID qualified as UUID
 import Database.SQLite.Simple
 import Database.SQLite.Simple.FromField
 import Database.SQLite.Simple.ToField
-import Options.Generic
 import Protolude hiding (div, hash, head, link)
 import Servant (ServerError)
 import Servant.API
 
 --------------------------------------------------------------------------------
 
-newtype DirectoryID = DirectoryID {unDirectoryID :: UUID}
+hashPath :: FilePath -> Text
+hashPath path =
+  show (BLAKE3.hash Nothing [encodeUtf8 $ T.pack path] :: BLAKE3.Digest 16)
+
+--------------------------------------------------------------------------------
+
+newtype DirectoryID = DirectoryID {unDirectoryID :: Text}
   deriving stock (Eq, Ord, Show)
   deriving newtype (FromField, ToField, FromHttpApiData, ToHttpApiData)
 
-newtype FileID = FileID {unFileID :: UUID}
+newtype FileID = FileID {unFileID :: Text}
   deriving stock (Eq, Ord, Show)
   deriving newtype (FromField, ToField, FromHttpApiData, ToHttpApiData)
+
+directoryIDForPath :: FilePath -> DirectoryID
+directoryIDForPath = DirectoryID . hashPath
+
+fileIDForPath :: FilePath -> FileID
+fileIDForPath = FileID . hashPath
 
 textFileID :: FileID -> Text
-textFileID = UUID.toText . unFileID
+textFileID = unFileID
 
 textDirectoryID :: DirectoryID -> Text
-textDirectoryID = UUID.toText . unDirectoryID
+textDirectoryID = unDirectoryID
 
 --------------------------------------------------------------------------------
 
@@ -75,14 +84,6 @@ instance FromRow File
 instance ToRow File
 
 --------------------------------------------------------------------------------
-
-instance FromField UUID where
-  fromField f = case fieldData f of
-    (SQLText txt) -> maybe empty pure $ UUID.fromText txt
-    _ -> empty
-
-instance ToField UUID where
-  toField = toField . UUID.toText
 
 --------------------------------------------------------------------------------
 

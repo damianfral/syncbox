@@ -23,8 +23,8 @@ extra-source-files:
 description: File synchronization tool written in Haskell
 
 dependencies:
-
   - base
+  - blake3
   - blaze-html
   - bytestring
   - conduit
@@ -52,7 +52,6 @@ dependencies:
   - tar
   - text
   - typed-process
-  - uuid
   - wai
   - wai-extra
   - warp
@@ -86,7 +85,6 @@ tests:
     - sydtest
     - sydtest-discover
     - servant
-    - uuid
     - text
 
 ghc-options:

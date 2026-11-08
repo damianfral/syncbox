@@ -4,7 +4,7 @@
 
 module SyncBox.RenderSpec (spec) where
 
-import Data.UUID qualified as UUID
+import Data.Text qualified as T
 import Protolude
 import SyncBox.Core
 import SyncBox.Render
@@ -33,9 +33,9 @@ spec = do
 mkFile :: FilePath -> File
 mkFile name =
   File
-    { fileID = FileID UUID.nil,
+    { fileID = FileID (T.replicate 32 "0"),
       fileName = name,
       fileSize = 0,
       filePath = "/tmp/" <> name,
-      fileDirectoryID = DirectoryID UUID.nil
+      fileDirectoryID = DirectoryID (T.replicate 64 "0")
     }
