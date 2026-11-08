@@ -14,7 +14,7 @@
 
 module SyncBox.Server where
 
-import Codec.Archive.Tar (write)
+import Codec.Archive.Tar qualified as Tar
 import Codec.Archive.Tar.Entry (packFileEntry, toTarPath)
 import Codec.Compression.GZip qualified as GZip
 import Colog (log)
@@ -270,16 +270,13 @@ resolveView = fromMaybe ListView
 compressDirectory :: Bool -> Directory -> ConduitT Void ByteString IO ()
 compressDirectory showHidden Directory {..} = do
   fps <- liftIO $ getFilesRecursive directoryPath
-  let visibleFiles =
-        filter (shouldIncludePath showHidden . makeRelative directoryPath) fps
-  entries <- liftIO $ forM visibleFiles $ \fp -> do
-    let archivePath = makeRelative directoryPath fp
-        tarPath = case toTarPath False archivePath of
-          Right tp -> tp
-          Left err -> Prelude.error $ "Invalid tar path: " <> err
-    packFileEntry fp tarPath
-  let tarBS = write entries
-  sourceLazy $ GZip.compress tarBS
+  let archivePaths =
+        [ makeRelative directoryPath fp
+        | fp <- fps,
+          shouldIncludePath showHidden (makeRelative directoryPath fp)
+        ]
+  entries <- liftIO $ Tar.pack directoryPath archivePaths
+  sourceLazy $ GZip.compress $ Tar.write entries
 
 compressFile :: File -> ConduitT Void ByteString IO ()
 compressFile File {..} = do
@@ -288,8 +285,7 @@ compressFile File {..} = do
         Right tp -> tp
         Left err -> Prelude.error $ "Invalid tar path: " <> err
   entry <- liftIO $ packFileEntry filePath tarPath
-  let tarBS = write [entry]
-  sourceLazy $ GZip.compress tarBS
+  sourceLazy $ GZip.compress $ Tar.write [entry]
 
 ------------------------------------------------------------------------------------------
 
