@@ -18,5 +18,13 @@ minimal file browser UI.
 ## Run
 
 ```sh
-nix run github:damianfral/syncbox -- --port <INT> --root <PATH> [--hidden]
+nix run github:damianfral/syncbox -- --help
+
+Usage: syncbox [--port INT] [--root STRING] [--hidden]
+
+Available options:
+  -h,--help                Show this help text
+  --port INT               port (default: 3333)
+  --root STRING            directory to server (default: ".")
+  --hidden                 include hidden directories and files
 ```

@@ -1,14 +1,8 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -18,22 +12,16 @@ import Codec.Archive.Tar qualified as Tar
 import Codec.Archive.Tar.Entry (packFileEntry, toTarPath)
 import Codec.Compression.GZip qualified as GZip
 import Colog (log)
-import Colog.Actions
 import Colog.Core
 import Conduit
-import Control.Lens hiding ((<.>))
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
-import Data.Generics.Labels ()
 import Data.Text (pack)
 import Data.Text qualified as T
-import Database.SQLite.Simple
 import Network.HTTP.Types.Header (hContentLength, hContentRange, hContentType)
 import Network.HTTP.Types.Status (status200, status206, status416)
 import Network.Mime (defaultMimeLookup)
 import Network.Wai
-import Network.Wai.Handler.Warp
-import Network.Wai.Middleware.RequestLogger
 import Options.Generic
 import Protolude hiding (Handler, div, head, link, log)
 import Servant.API
@@ -45,7 +33,6 @@ import SyncBox.Core
 import SyncBox.Database
 import SyncBox.Render
 import SyncBox.Thumbnail
-import System.Directory (makeAbsolute)
 import System.Directory.Recursive (getFilesRecursive)
 import System.FSNotify as FS
 import System.FilePath (makeRelative, splitDirectories, takeFileName)
@@ -93,13 +80,6 @@ processRootDirectory :: AppM ()
 processRootDirectory = insertRootDirectory >>= processDirectory
 
 --------------------------------------------------------------------------------
-
-printDB :: Env AppM -> IO ()
-printDB Env {..} = do
-  directories :: [Directory] <- query_ dbConnection "SELECT * FROM directories;"
-  files :: [File] <- query_ dbConnection "SELECT * FROM files;"
-  mapM_ print directories
-  mapM_ print files
 
 processFSEvent :: FS.Event -> AppM ()
 processFSEvent evt = do
@@ -286,38 +266,3 @@ compressFile File {..} = do
         Left err -> Prelude.error $ "Invalid tar path: " <> err
   entry <- liftIO $ packFileEntry filePath tarPath
   sourceLazy $ GZip.compress $ Tar.write [entry]
-
-------------------------------------------------------------------------------------------
-
-data ServerOptions = ServerOptions
-  { port :: Int,
-    root :: FilePath,
-    hidden :: Bool
-  }
-  deriving (Show, Generic)
-
-instance ParseRecord ServerOptions
-
---------------------------------------------------------------------------------
-
-runCLI :: IO ()
-runCLI = do
-  opts' :: ServerOptions <- getRecord "syncbox"
-  opts <- do
-    absPath <- makeAbsolute $ root opts'
-    pure $ opts' & #root .~ absPath
-  withConnection ":memory:" $ \db -> do
-    let env = Env (root opts) (hidden opts) db richMessageAction
-    initDB db
-    void $ runAppM env processRootDirectory
-    withManager $ \mgr -> void $ runAppM env $ watcher opts mgr env
-  where
-    watcher :: ServerOptions -> WatchManager -> Env AppM -> AppM ()
-    watcher opts mgr env = do
-      log I "Starting FS Watcher"
-      let dir = root opts
-      let actionPredicate = const True
-      let runApp = void . runAppM env . processFSEvent
-      void $ liftIO $ watchTree mgr dir actionPredicate runApp
-      log I "Starting server"
-      liftIO $ run (port opts) . logStdout $ app env

@@ -1,6 +1,6 @@
 module Main (main) where
 
-import SyncBox.Server
+import SyncBox.CLI
 import Prelude
 
 main :: IO ()
